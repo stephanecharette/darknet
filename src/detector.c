@@ -902,6 +902,7 @@ void validate_detector_recall(char *datacfg, char *cfgfile, char *weightfile)
         }
         //fprintf(stderr, " %s - %s - ", paths[i], labelpath);
         fprintf(stderr, "%5d %5d %5d\tRPs/Img: %.2f\tIOU: %.2f%%\tRecall:%.2f%%\n", i, correct, total, (float)proposals / (i + 1), avg_iou * 100 / total, 100.*correct / total);
+        free(truth);
         free(id);
         free_image(orig);
         free_image(sized);
@@ -970,12 +971,12 @@ float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, floa
     list *plist = get_paths(valid_images);
     char **paths = (char **)list_to_array(plist);
 
+    list *plist_dif = NULL;
     char **paths_dif = NULL;
     if (difficult_valid_images) {
-        list *plist_dif = get_paths(difficult_valid_images);
+        plist_dif = get_paths(difficult_valid_images);
         paths_dif = (char **)list_to_array(plist_dif);
     }
-
 
     layer l = net.layers[net.n - 1];
     int k;
@@ -1181,6 +1182,8 @@ float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, floa
             //if(errors_in_this_image > 0) fwrite(buff, sizeof(char), strlen(buff), reinforcement_fd);
 
             free_detections(dets, nboxes);
+            free(truth);
+            free(truth_dif);
             free(id);
             free_image(val[t]);
             free_image(val_resized[t]);
@@ -1274,7 +1277,6 @@ float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, floa
 
     free(truth_flags);
 
-
     double mean_average_precision = 0;
 
     for (i = 0; i < classes; ++i) {
@@ -1362,7 +1364,14 @@ float validate_detector_map(char *datacfg, char *cfgfile, char *weightfile, floa
     free(detections);
     free(truth_classes_count);
     free(detection_per_class_count);
-
+    free(paths);
+    free(paths_dif);
+    free_list_contents(plist);
+    free_list(plist);
+    if (plist_dif) {
+        free_list_contents(plist_dif);
+        free_list(plist_dif);
+    }
     free(avg_iou_per_class);
     free(tp_for_thresh_per_class);
     free(fp_for_thresh_per_class);
@@ -1484,6 +1493,7 @@ void calc_anchors(char *datacfg, int num_of_clusters, int width, int height, int
             printf("\r loaded \t image: %d \t box: %d", i + 1, number_of_boxes);
         }
         free(buff);
+        free(truth);
     }
     printf("\n all loaded. \n");
     printf("\n calculating k-means++ ...");
