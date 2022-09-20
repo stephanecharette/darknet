@@ -21,6 +21,7 @@ option(ENABLE_CUDNN "Enable CUDNN" ON)
 option(ENABLE_CUDNN_HALF "Enable CUDNN Half precision" ON)
 option(ENABLE_ZED_CAMERA "Enable ZED Camera support" ON)
 option(ENABLE_VCPKG_INTEGRATION "Enable VCPKG integration" ON)
+option(ENABLE_DEPLOY_CUSTOM_CMAKE_MODULES "Copy custom CMake modules for downstream integration" OFF)
 option(ENABLE_CSHARP_WRAPPER "Enable building a csharp wrapper" OFF)
 option(VCPKG_BUILD_OPENCV_WITH_CUDA "Build OpenCV with CUDA extension integration" ON)
 option(VCPKG_USE_OPENCV2 "Use legacy OpenCV 2" OFF)
@@ -102,7 +103,7 @@ elseif(WIN32)
   set(USE_INTEGRATED_LIBS "TRUE" CACHE BOOL "Use libs distributed with this repo")
 else()
   message(WARNING "vcpkg not found, toolchain not defined, system not win32 so build might fail")
-  set(USE_INTEGRATED_LIBS "FALSE" CACHE BOOL "Use libs distributed with this repo")
+  set(USE_INTEGRATED_LIBS "TRUE" CACHE BOOL "Use libs distributed with this repo")
 endif()
 
 project(Darknet VERSION ${Darknet_VERSION})
@@ -111,7 +112,9 @@ enable_language(C)
 enable_language(CXX)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules/" ${CMAKE_MODULE_PATH})
+if(USE_INTEGRATED_LIBS)
+  set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules/" ${CMAKE_MODULE_PATH})
+endif()
 
 if(CMAKE_COMPILER_IS_GNUCC OR "${CMAKE_C_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   set(CMAKE_COMPILER_IS_GNUCC_OR_CLANG TRUE)
@@ -158,8 +161,13 @@ if(ENABLE_CUDA)
       message(STATUS "CUDACXX: $ENV{CUDACXX}")
       message(FATAL_ERROR "Unsupported CUDA version, please upgrade to CUDA 9+ or disable CUDA with explicitly with -DENABLE_CUDA=OFF")
     else()
+      if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.23.0" AND NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES all-major)
+      endif()
       message(STATUS "Selected CMAKE_CUDA_ARCHITECTURES: ${CMAKE_CUDA_ARCHITECTURES}")
-      if(70 IN_LIST CMAKE_CUDA_ARCHITECTURES OR
+      if("all-major" IN_LIST CMAKE_CUDA_ARCHITECTURES OR
+         "all" IN_LIST CMAKE_CUDA_ARCHITECTURES OR
+         70 IN_LIST CMAKE_CUDA_ARCHITECTURES OR
          72 IN_LIST CMAKE_CUDA_ARCHITECTURES OR
          75 IN_LIST CMAKE_CUDA_ARCHITECTURES OR
          80 IN_LIST CMAKE_CUDA_ARCHITECTURES OR
@@ -187,16 +195,14 @@ endif()
 
 if(USE_INTEGRATED_LIBS)
   set(PThreads4W_ROOT ${CMAKE_CURRENT_LIST_DIR}/3rdparty/pthreads CACHE PATH "Path where pthreads for windows can be located")
+  set(Stb_DIR ${CMAKE_CURRENT_LIST_DIR}/3rdparty/stb CACHE PATH "Path where Stb image library can be located")
 endif()
-set(Stb_DIR ${CMAKE_CURRENT_LIST_DIR}/3rdparty/stb CACHE PATH "Path where Stb image library can be located")
 
 set(CMAKE_DEBUG_POSTFIX d)
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
-if(MSVC AND USE_INTEGRATED_LIBS)
+if(MSVC)
   find_package(PThreads4W REQUIRED)
-elseif(MSVC)
-  find_package(pthreads REQUIRED)
 endif()
 if(ENABLE_OPENCV)
   find_package(OpenCV REQUIRED)
@@ -470,11 +476,11 @@ if(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 if(MSVC)
-  target_link_libraries(darknet PRIVATE PThreads_windows::PThreads_windows)
+  target_link_libraries(darknet PRIVATE PThreads4W::PThreads4W)
   target_link_libraries(darknet PRIVATE wsock32)
-  target_link_libraries(dark PUBLIC PThreads_windows::PThreads_windows)
+  target_link_libraries(dark PUBLIC PThreads4W::PThreads4W)
   target_link_libraries(dark PUBLIC wsock32)
-  target_link_libraries(uselib PRIVATE PThreads_windows::PThreads_windows)
+  target_link_libraries(uselib PRIVATE PThreads4W::PThreads4W)
   target_compile_definitions(darknet PRIVATE -D_CRT_RAND_S -DNOMINMAX -D_USE_MATH_DEFINES)
   target_compile_definitions(dark PRIVATE -D_CRT_RAND_S -DNOMINMAX -D_USE_MATH_DEFINES)
   target_compile_definitions(dark PUBLIC -D_CRT_SECURE_NO_WARNINGS)
@@ -509,7 +515,7 @@ if(ENABLE_CUDA)
   target_compile_definitions(dark PUBLIC -DGPU)
 endif()
 
-if(USE_INTEGRATED_LIBS)
+if(USE_INTEGRATED_LIBS AND WIN32)
   target_compile_definitions(darknet PRIVATE -D_TIMESPEC_DEFINED)
   target_compile_definitions(dark PRIVATE -D_TIMESPEC_DEFINED)
 endif()
@@ -529,7 +535,7 @@ if(OpenCV_FOUND AND OpenCV_VERSION VERSION_GREATER "3.0" AND BUILD_USELIB_TRACK)
     target_compile_definitions(uselib_track PRIVATE -DZED_STEREO)
   endif()
   if(MSVC)
-    target_link_libraries(uselib_track PRIVATE PThreads_windows::PThreads_windows)
+    target_link_libraries(uselib_track PRIVATE PThreads4W::PThreads4W)
     target_compile_definitions(uselib_track PRIVATE -D_CRT_RAND_S -DNOMINMAX -D_USE_MATH_DEFINES)
   endif()
   target_link_libraries(uselib_track PRIVATE Threads::Threads)
@@ -584,6 +590,14 @@ install(FILES
   "${PROJECT_BINARY_DIR}/DarknetConfigVersion.cmake"
   DESTINATION "${INSTALL_CMAKE_DIR}"
 )
+
+if (ENABLE_DEPLOY_CUSTOM_CMAKE_MODULES)
+  install(FILES
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules/FindCUDNN.cmake"
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/Modules/FindPThreads4W.cmake"
+    DESTINATION "${INSTALL_CMAKE_DIR}"
+  )
+endif()
 
 if(ENABLE_CSHARP_WRAPPER)
   add_subdirectory(src/csharp)
