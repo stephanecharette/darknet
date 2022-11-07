@@ -10,9 +10,11 @@ IF (NOT CMAKE_BUILD_TYPE)
 	SET (CMAKE_BUILD_TYPE Release)
 ENDIF ()
 
+SET (CMAKE_CXX_STANDARD				17)
+SET (CMAKE_CXX_STANDARD_REQUIRED	ON)
+
 INCLUDE (CM_version.cmake		) # get the version number
 INCLUDE (CM_definitions.cmake	) # compiler definitions
 INCLUDE (CM_dependencies.cmake	) # find all required dependencies
 INCLUDE (CM_source.cmake		) # source code that needs to be built
 INCLUDE (CM_package.cmake		) # create .exe or .deb packages
-

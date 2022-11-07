@@ -12,4 +12,3 @@ IF (WIN32)
 ELSE ()
 	ADD_COMPILE_OPTIONS (-Wall -Wextra -Werror -Wno-unused-parameter)
 ENDIF ()
-

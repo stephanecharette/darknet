@@ -18,4 +18,3 @@ SET (CPACK_SOURCE_IGNORE_FILES			".git" ".kdev4" "build/"	)
 SET (CPACK_SOURCE_GENERATOR				"TGZ;ZIP"					)
 
 INCLUDE (CPack)
-

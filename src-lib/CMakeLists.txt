@@ -1,22 +1,17 @@
-# DarkHelp - C++ helper class for Darknet's C API.
-# Copyright 2019-2022 Stephane Charette <stephanecharette@gmail.com>
+# Darknet Next Gen - Darknet YOLO framework for computer vision / object detection.
 # MIT license applies.  See "license.txt" for details.
 
 
-# the library is C++11, but the CLI tool uses std::filesystem from C++17
-SET ( CMAKE_CXX_STANDARD				11 )
-SET ( CMAKE_CXX_STANDARD_REQUIRED		ON )
-SET ( CMAKE_POSITION_INDEPENDENT_CODE	ON )
-SET ( BUILD_SHARED_LIBS					FALSE )
+SET (CMAKE_POSITION_INDEPENDENT_CODE ON)
+SET (BUILD_SHARED_LIBS TRUE)
 
-FILE ( GLOB SRC_LIB *.cpp	)
-LIST ( SORT SRC_LIB			)
+FILE (GLOB SRC_LIB *.cpp	)
+LIST (SORT SRC_LIB			)
 
-FILE ( GLOB HEADERS *.hpp	)
-LIST ( SORT HEADERS			)
+FILE (GLOB HEADERS *.hpp	)
+LIST (SORT HEADERS			)
 
-ADD_LIBRARY ( dh STATIC ${SRC_LIB} )
-SET_TARGET_PROPERTIES ( dh PROPERTIES OUTPUT_NAME "darkhelp" )
+ADD_LIBRARY (darknet-ng ${SRC_LIB})
 
-INSTALL ( FILES ${HEADERS}	DESTINATION include	)
-INSTALL ( TARGETS dh		DESTINATION lib		)
+INSTALL (FILES ${HEADERS} DESTINATION include)
+INSTALL (TARGETS darknet-ng DESTINATION lib)
