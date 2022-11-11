@@ -99,8 +99,7 @@ namespace Darknet_ng
 		kSoftmaxNormalization
 	};
 
-	/// was: ACTIVATION
-	enum class EActivation
+	enum class EActivation /// was: ACTIVATION
 	{
 		kLogistic				,
 		kRELU					,
@@ -127,8 +126,7 @@ namespace Darknet_ng
 		kNormCHANSoftmaxMaxVal
 	};
 
-	/// was: BINARY_ACTIVATION
-	enum class EBinaryActivation
+	enum class EBinaryActivation /// was: BINARY_ACTIVATION
 	{
 		kMult	,
 		kAdd	,
@@ -168,7 +166,7 @@ namespace Darknet_ng
 		kSegmentationData		,
 		kInstanceData			,
 		kISEGData
-	}
+	};
 
 	enum class EImType // was: IMTYPE
 	{
