@@ -8,6 +8,15 @@
 
 namespace Darknet_ng
 {
+#ifdef STEPHANE
+	struct Section // was: section
+	{
+		char *type;
+		list *options;
+		MStr options;
+	};
+#endif
+
 	struct ContrastiveParams // was: contrastive_params
 	{
 		float	sim;
@@ -387,7 +396,7 @@ namespace Darknet_ng
 		struct layer *ug;
 		struct layer *wg;
 
-		tree *softmax_tree;
+		Tree *softmax_tree;
 
 		size_t workspace_size;
 

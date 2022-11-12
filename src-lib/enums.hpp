@@ -3,9 +3,17 @@
 
 #pragma once
 
+#include <string>
+
 
 namespace Darknet_ng
 {
+	/// @todo
+	enum UNUSED_ENUM_TYPE
+	{
+		UNUSED_DEF_VAL
+	};
+
 	/// was:  LAYER_TYPE
 	enum class ELayerType
 	{

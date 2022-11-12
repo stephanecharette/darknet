@@ -1,10 +1,66 @@
 // Darknet Next Gen - Darknet YOLO framework for computer vision / object detection.
 // MIT license applies.  See "license.txt" for details.
 
+#include <fstream>
 #include "darknet-ng.hpp"
 
 
 std::string Darknet_ng::version()
 {
 	return DNG_VERSION;
+}
+
+
+std::string Darknet_ng::strip_text(const std::string & line)
+{
+	std::string txt = line;
+
+	return strip_text(txt);
+}
+
+
+std::string & Darknet_ng::strip_text(std::string & line)
+{
+	if (not line.empty())
+	{
+		// trailing whitespace
+		auto pos = line.find_last_not_of(" \t\r\n");
+		if (pos != std::string::npos)
+		{
+			line.erase(pos + 1);
+		}
+
+		// leading whitespace
+		pos = line.find_first_not_of(" \t\r\n");
+		if (pos != std::string::npos and pos > 0)
+		{
+			line.erase(0, pos);
+		}
+	}
+
+	return line;
+}
+
+
+Darknet_ng::VStr Darknet_ng::read_text_file(const std::filesystem::path & filename)
+{
+	if (not std::filesystem::exists(filename))
+	{
+		throw std::invalid_argument("file does not exist: \"" + filename.string() + "\"");
+	}
+
+	std::ifstream ifs(filename);
+	if (not ifs.good())
+	{
+		throw std::invalid_argument("failed to read file: \"" + filename.string() + "\"");
+	}
+
+	VStr v;
+	std::string line;
+	while (std::getline(ifs, line))
+	{
+		v.push_back(line);
+	}
+
+	return v;
 }
