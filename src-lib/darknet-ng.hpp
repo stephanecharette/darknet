@@ -24,6 +24,12 @@ namespace Darknet_ng
 	std::string & strip_text(std::string & line);
 	/// @}
 
+	/// Get the lowercase version of the given text.  The original is untouched.
+	std::string lowercase(const std::string & text);
+
+	/// Convert the given string to lowercase.
+	std::string & lowercase(std::string & text);
+
 	/// Read the given text file.  File must exist.
 	VStr read_text_file(const std::filesystem::path & filename);
 

@@ -10,11 +10,15 @@ int main(int argc, char ** argv)
 	std::cout << "Darknet Next Generation v" << Darknet_ng::version() << std::endl;
 
 	Darknet_ng::Config cfg("test.cfg");
-	std::cout << cfg << std::endl
-		<< "Sections ... " << cfg.sections.size() << std::endl;
+	std::cout << cfg << std::endl;
 
-
-//	Darknet_ng::VStr v = Darknet_ng::read_cfg("test.cfg");
+	std::cout
+		<< "width ........... " << cfg["net"]["width"]			<< std::endl
+		<< "height .......... " << cfg["net"]["height"]			<< std::endl
+		<< "learning_rate ... " << cfg["net"]["learning_rate"]	<< std::endl
+		<< "yolo layers ..... " << cfg.count("yolo")			<< std::endl
+		<< "yolo line # ..... " << cfg["yolo"].line_number		<< std::endl
+		<< cfg["net"]											<< std::endl;
 
 	return 0;
 }

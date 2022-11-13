@@ -1,6 +1,7 @@
 // Darknet Next Gen - Darknet YOLO framework for computer vision / object detection.
 // MIT license applies.  See "license.txt" for details.
 
+#include <algorithm>
 #include <fstream>
 #include "darknet-ng.hpp"
 
@@ -39,6 +40,26 @@ std::string & Darknet_ng::strip_text(std::string & line)
 	}
 
 	return line;
+}
+
+
+std::string Darknet_ng::lowercase(const std::string & text)
+{
+	std::string str = text;
+
+	return lowercase(str);
+}
+
+
+std::string & Darknet_ng::lowercase(std::string & text)
+{
+	std::transform(text.begin(), text.end(), text.begin(),
+		[](unsigned char c)
+		{
+			return std::tolower(c);
+		});
+
+	return text;
 }
 
 
