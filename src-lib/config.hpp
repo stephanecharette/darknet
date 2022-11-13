@@ -54,7 +54,9 @@ namespace Darknet_ng
 			/// Compare two @p Section objects.
 			bool operator==(const Section & rhs) const;
 
-			/// Get the value for a specific key.  The key-value pair must exist, or this will throw an exception.
+			/** Get the value for a specific key.  The key-value pair must exist, or this will throw an exception.
+			 * This is an alias for @ref s().
+			 */
 			const std::string & operator[](const std::string & key) const;
 
 			/// Get the value corresponding to a key, and convert it to an integer.  The key must exist, and must be numeric.
@@ -74,6 +76,12 @@ namespace Darknet_ng
 
 			/// Get the value corresponding to a key, and convert it to a bool.  If the key does not exist, use the provided default value.
 			bool b(const std::string & key, const bool default_value) const;
+
+			/// Get the value corresponding to a key.  The key must exist.
+			const std::string & s(const std::string & key) const;
+
+			/// Get the value corresponding to a key.  If the key does not exist, use the provided default value.
+			std::string s(const std::string & key, const std::string & default_value) const;
 
 			/// The section names are enclosed in square brackets, such as @p "[net]".
 			std::string name;

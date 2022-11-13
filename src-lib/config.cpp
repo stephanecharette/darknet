@@ -61,9 +61,7 @@ bool Darknet_ng::Section::operator==(const Darknet_ng::Section & rhs) const
 
 const std::string & Darknet_ng::Section::operator[](const std::string & key) const
 {
-	const auto key_name = lowercase(key);
-
-	return kv_pairs.at(key_name);
+	return s(key);
 }
 
 
@@ -73,7 +71,17 @@ int Darknet_ng::Section::i(const std::string & key) const
 
 	const std::string & val = kv_pairs.at(key_name);
 
-	return std::stod(val);
+	int result = 0;
+	try
+	{
+		result = std::stod(val);
+	}
+	catch (std::exception & e)
+	{
+		throw std::runtime_error(key_name + " in section [" + name + "] cannot be converted to an integer (" + val + ")");
+	}
+
+	return result;
 }
 
 
@@ -96,7 +104,17 @@ float Darknet_ng::Section::f(const std::string & key) const
 
 	const std::string & val = kv_pairs.at(key_name);
 
-	return std::stof(val);
+	float result = 0.0f;
+	try
+	{
+		result = std::stof(val);
+	}
+	catch (std::exception & e)
+	{
+		throw std::runtime_error(key_name + " in section [" + name + "] cannot be converted to a float (" + val + ")");
+	}
+
+	return result;
 }
 
 
@@ -120,12 +138,21 @@ bool Darknet_ng::Section::b(const std::string & key) const
 
 	if (val == "0" or
 		val == "f" or
+		val == "off" or
 		val == "false")
 	{
 		return false;
 	}
 
-	return true;
+	if (val == "1" or
+		val == "t" or
+		val == "on" or
+		val == "true")
+	{
+		return true;
+	}
+
+	throw std::runtime_error(key_name + " in section [" + name + "] cannot be converted to a bool (" + val + ")");
 }
 
 
@@ -139,6 +166,27 @@ bool Darknet_ng::Section::b(const std::string & key, const bool default_value) c
 	}
 
 	return b(key_name);
+}
+
+
+const std::string & Darknet_ng::Section::s(const std::string & key) const
+{
+	const auto key_name = lowercase(key);
+
+	return kv_pairs.at(key_name);
+}
+
+
+std::string Darknet_ng::Section::s(const std::string & key, const std::string & default_value) const
+{
+	const auto key_name = lowercase(key);
+
+	if (kv_pairs.count(key_name) == 0)
+	{
+		return default_value;
+	}
+
+	return kv_pairs.at(key_name);
 }
 
 
@@ -250,6 +298,18 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 			throw std::runtime_error("[" + section.name + "] already contains " + key + "=" + section.kv_pairs[key] + ", but duplicate key found on line #" + std::to_string(line_number));
 		}
 		section.kv_pairs[key] = val;
+	}
+
+	if (empty())
+	{
+		throw std::runtime_error("configuration file is empty: \"" + cfg_filename.string() + "\"");
+		throw std::invalid_argument("configuration file is empty: \"" + cfg_filename.string() + "\"");
+	}
+
+	if (sections[0].name != "net" and
+		sections[0].name != "network")
+	{
+		throw std::runtime_error("configuration file does not start with [net] nor [network]: " + cfg_filename.string() + "\"");
 	}
 
 	return *this;

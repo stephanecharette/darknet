@@ -142,18 +142,6 @@ namespace Darknet_ng
 		kDiv
 	};
 
-	enum class ELearningRatePolicy // was:  learning_rate_policy
-	{
-		kConstant	,
-		kStep		,
-		kEXP		,
-		kPoly		,
-		kSteps		,
-		kSIG		,
-		kRandom		,
-		kSGDR
-	};
-
 	enum class EDataType // was: data_type
 	{
 		kClassificationData		,
