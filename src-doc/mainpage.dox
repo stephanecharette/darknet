@@ -1,0 +1,41 @@
+/** @mainpage Darknet-NG
+
+Welcome to @b Darknet-NG!  This is the next generation of fast + accurate object detection with Darknet/YOLO.
+
+@note This project is a work-in-progress.  <b>It does not build, and cannot be used!</b>  This page will be updated once we have a better idea of when the first release will be available.
+
+Rationale
+---------
+
+The Darknet/YOLO project is difficult to maintain.  The original author -- Joseph Redmon -- is not involved in the development of Darknet/YOLO anymore.  There have been hundreds of forks over the last few years, the most popular of which is the one by Alexey Bochkovskiy.
+
+But this code is a convoluted mix of old-style C and C++, and is quite difficult to maintain and develop further.  For this reason, the code was forked yet again in November 2022 to create @b Darknet-NG.  This is a new codebase, rewritten to use C++17.  These changes are an extensive overhaul and not intended to be merged back into the original codebase.
+
+Goal
+----
+
+The initial goal is to have inference working with YOLOv4-tiny, YOLOv4-tiny-3L, and YOLOv4.  After which we'll ensure that YOLOv7 and maybe the previous YOLOv3-tiny, YOLOv3-tiny-3L, and YOLOv3 configurations are also working.  There are no plans at this time to look at older configurations such as YOLOv2.
+
+Once inference is working, the next big feature will be to train new networks using @b Darknet-NG.
+
+The configuration files and weights files will remain unchanged.  People will have the opportunity to take their neural networks and easily switch between the "old" Darknet and the new @b Darknet-NG.  This means the Darknet/YOLO neural networks will also continue working with OpenCV's DNN module and any other framework which already supports Darknet/YOLO.
+
+Support
+-------
+
+To help support this project:
+
+@li Consider sponsoring on github: https://github.com/stephanecharette/darknet/
+@li Purchase something from the merch store: https://ccoderun.myspreadshop.ca/
+@li Are you a C++17 software developer?  Want to help?  <a target="_blank" href="https://discord.gg/zSq8rtW">Join us for a chat on Discord!</a>
+
+<div style="padding:1em; margin:2em; border:1px solid black; display:inline-block;">
+@b Darknet-NG is written by <a target="_blank" href="https://www.ccoderun.ca/stephane/">Stéphane Charette d.b.a. C Code Run</a><br/>
+&copy; 2022 <a target="_blank" href="/stephane/">Stéphane Charette</a><br/>
+http://www.ccoderun.ca/ <br/>
+stephane@ccoderun.ca <br/>
+stephane.charette@gmail.com <br/>
+Tel. +1-250-769-2759 &nbsp; <span style="font-size:80%;">[Pacific Time, PST/PDT]</span>
+</div>
+
+*/

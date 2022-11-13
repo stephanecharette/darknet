@@ -1,0 +1,9 @@
+/** @page Links Quick Links
+
+Quick links to some of the new C++17 code:
+
+@li @ref Darknet_ng
+@li @ref Darknet_ng::Config
+@li @ref Darknet_ng::Section
+
+*/
