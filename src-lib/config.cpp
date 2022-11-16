@@ -190,6 +190,38 @@ std::string Darknet_ng::Section::s(const std::string & key, const std::string & 
 }
 
 
+Darknet_ng::VI Darknet_ng::Section::vi(const std::string & key) const
+{
+	// for example:  steps=-1,100,20000,30000
+
+	VI v;
+	std::string token;
+	std::stringstream ss(s(key, ""));
+	while (std::getline(ss, token, ','))
+	{
+		v.push_back(std::stod(token));
+	}
+
+	return v;
+}
+
+
+Darknet_ng::VF Darknet_ng::Section::vf(const std::string & key) const
+{
+	// for example:  scales=.1,.1
+
+	VF v;
+	std::string token;
+	std::stringstream ss(s(key, ""));
+	while (std::getline(ss, token, ','))
+	{
+		v.push_back(std::stof(token));
+	}
+
+	return v;
+}
+
+
 Darknet_ng::Config::~Config()
 {
 	return;
@@ -238,13 +270,13 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 	 *	4) key-value pairs, such as "batch = 1"
 	 */
 	const std::regex rx(
-		"[#;].*"				// comments we need to ignore
+		"^[#;]"						// comment lines we need to ignore
 		"|"
-		"\\[\\s*(\\S+)\\s*\\]"	// group #1:  new section, such as "[net]"
-		"|"						// ...or...
-		"(\\S+)"				// group #2:  key
-		"\\s*=\\s*"				// =
-		"(.*)"					// group #3:  optional value
+		"^\\[\\s*([^\\]]+?)\\s*\\]"	// group #1:  new section, such as "[net]"
+		"|"							// ...or...
+		"^(\\S+)"					// group #2:  key
+		"\\s*=\\s*"					// =
+		"([^#]*)"					// group #3:  optional value
 	);
 
 	std::string most_recent_section_name;
@@ -261,7 +293,7 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 		}
 
 		std::smatch m;
-		const bool found = std::regex_match(line, m, rx);
+		const bool found = std::regex_search(line, m, rx);
 		if (not found)
 		{
 			throw std::runtime_error("failed to parse line #" + std::to_string(line_number) + " in " + cfg_filename.string());
@@ -302,7 +334,6 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 
 	if (empty())
 	{
-		throw std::runtime_error("configuration file is empty: \"" + cfg_filename.string() + "\"");
 		throw std::invalid_argument("configuration file is empty: \"" + cfg_filename.string() + "\"");
 	}
 

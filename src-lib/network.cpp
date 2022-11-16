@@ -128,10 +128,8 @@ Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 
 	policy = learning_rate_policy_from_string(net.s("policy", "constant"));
 
-RESUME FROM HERE:
+	burn_in = net.i("burn_in", 0);
 
-
-	net->burn_in = option_find_int_quiet(options, "burn_in", 0);
 	#ifdef GPU
 	if (net->gpu_index >= 0) {
 		char device_name[1024];
@@ -144,14 +142,24 @@ RESUME FROM HERE:
 	}
 	else fprintf(stderr, " GPU isn't used \n");
 	#endif// GPU
-	if(net->policy == STEP){
-		net->step = option_find_int(options, "step", 1);
-		net->scale = option_find_float(options, "scale", 1);
-	} else if (net->policy == STEPS || net->policy == SGDR){
+
+	if (policy == ELearningRatePolicy::kStep)
+	{
+		step	= net.i("step"	, 1		);
+		scale	= net.f("scale"	, 1.0f	);
+	}
+	else if (policy == ELearningRatePolicy::kSteps or policy == ELearningRatePolicy::kSGDR)
+	{
+RESUME_FROM_HERE
+
 		char *l = option_find(options, "steps");
 		char *p = option_find(options, "scales");
 		char *s = option_find(options, "seq_scales");
-		if(net->policy == STEPS && (!l || !p)) error("STEPS policy must have steps and scales in cfg file", DARKNET_LOC);
+
+		if(policy == ELearningRatePolicy::kSteps and(not l or not p))
+		{
+			throw std::runtime_error("\"Steps\" policy must have \"steps\" and \"scales\" in .cfg file");
+		}
 
 		if (l) {
 			int len = strlen(l);
@@ -186,13 +194,19 @@ RESUME FROM HERE:
 			net->seq_scales = seq_scales;
 			net->num_steps = n;
 		}
-	} else if (net->policy == EXP){
-		net->gamma = option_find_float(options, "gamma", 1);
-	} else if (net->policy == SIG){
-		net->gamma = option_find_float(options, "gamma", 1);
-		net->step = option_find_int(options, "step", 1);
-	} else if (net->policy == POLY || net->policy == RANDOM){
-		//net->power = option_find_float(options, "power", 1);
+	}
+	else if (policy == ELearningRatePolicy::kEXP)
+	{
+		gamma = net.f("gamma", 1.0f);
+	}
+	else if (policy == ELearningRatePolicy::kSigmoid)
+	{
+		step	= net.i("step"	, 1		);
+		gamma	= net.f("gamma"	, 1.0f	);
+	}
+	else if (policy == ELearningRatePolicy::kPoly or policy == ELearningRatePolicy::kRandom)
+	{
+//		power = net.f("power", 1.0f);
 	}
 
 	return;

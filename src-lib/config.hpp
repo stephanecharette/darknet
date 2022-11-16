@@ -29,6 +29,8 @@ namespace Darknet_ng
 	 * This means if you parse a configuration file and then output the sections, the results may not necessarily match.
 	 *
 	 * @see @ref Darknet_ng::Config
+	 *
+	 * @since 2022-11-11
 	 */
 	class Section final
 	{
@@ -83,6 +85,28 @@ namespace Darknet_ng
 			/// Get the value corresponding to a key.  If the key does not exist, use the provided default value.
 			std::string s(const std::string & key, const std::string & default_value) const;
 
+			/** Interpret the given key as a vector of integers.  The vector may be empty if the key does not exist or does not
+			 * contain any values.
+			 *
+			 * Examples of this would be:
+			 *
+			 * ~~~~{.txt}
+			 * steps=-1,100,20000,30000
+			 * ~~~~
+			 */
+			VI vi(const std::string & key) const;
+
+			/** Interpret the given key as a vector of floats.  The vector may be empty if the key does not exist or does not
+			 * contain any values.
+			 *
+			 * Examples of this would be:
+			 *
+			 * ~~~~{.txt}
+			 * scales=.1,.1
+			 * ~~~~
+			 */
+			VF vf(const std::string & key) const;
+
 			/// The section names are enclosed in square brackets, such as @p "[net]".
 			std::string name;
 
@@ -131,6 +155,8 @@ namespace Darknet_ng
 	 * ~~~~
 	 *
 	 * @see @ref Darknet_ng::Section
+	 *
+	 * @since 2022-11-11
 	 */
 	class Config final
 	{

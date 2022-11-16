@@ -8,6 +8,10 @@
 
 namespace Darknet_ng
 {
+	/** @todo
+	 *
+	 * @since 2022-11-13
+	 */
 	class Network final
 	{
 		public:
@@ -92,6 +96,8 @@ namespace Darknet_ng
 
 			ELearningRatePolicy policy;			///< [net][policy]
 
+			int burn_in;						///< [net][burn_in]
+
 #ifdef WORK_IN_PROGRESS /// @todo
 
 			int n;	// the number of layers in the network (sections - 1, since [net] doesn't count)
@@ -113,7 +119,6 @@ namespace Darknet_ng
 			float *scales;
 			int   *steps;
 			int num_steps;
-			int burn_in;
 			int cudnn_half;
 
 			int outputs;

@@ -15,6 +15,8 @@ namespace Darknet_ng
 {
 	using VStr = std::vector<std::string>;
 	using MStr = std::map<std::string, std::string>;
+	using VI = std::vector<int>;
+	using VF = std::vector<float>;
 
 	/// Get the version string.  Looks like @p "1.2.3-1".
 	std::string version();
