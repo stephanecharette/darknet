@@ -2,7 +2,6 @@
 // MIT license applies.  See "license.txt" for details.
 
 #include "darknet-ng.hpp"
-#include "config.hpp"
 #include <iostream>
 
 
@@ -14,11 +13,39 @@ Darknet_ng::Network::~Network()
 
 Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 {
-	Config cfg(cfg_filename);
+	load(cfg_filename);
 
-	gpu_index = -1; // do not use the GPU
+	return;
+}
 
-	const auto & net = *cfg.sections.begin(); // could be [net] or [network]
+
+Darknet_ng::Network & Darknet_ng::Network::clear()
+{
+	cfg			.clear();
+	layers		.clear();
+
+	gpu_index	= -1; // do not use the GPU
+
+	/// @todo lots more to add!
+
+	return *this;
+}
+
+
+Darknet_ng::Network & Darknet_ng::Network::load(const std::filesystem::path & cfg_filename)
+{
+	clear();
+
+	cfg.read(cfg_filename);
+	parse_net(cfg);
+
+	return *this;
+}
+
+
+Darknet_ng::Network & Darknet_ng::Network::parse_net(const Config & cfg)
+{
+	const auto & net = *cfg.sections.begin(); // required to be [net] or [network]
 
 	max_batches						= net.i("max_batches"					, 0);
 	batch							= net.i("batch"							, 1);
@@ -36,12 +63,12 @@ Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 	sequential_subdivisions			= init_sequential_subdivisions;
 	if (sequential_subdivisions > subdivisions)
 	{
-		init_sequential_subdivisions = subdivisions;
-		sequential_subdivisions = subdivisions;
+		init_sequential_subdivisions	= subdivisions;
+		sequential_subdivisions			= subdivisions;
 	}
 	try_fix_nan						= net.i("try_fix_nan"					, 0);
 	batch /= subdivisions; // mini_batch
-	const auto mini_batch = net->batch;
+	const auto mini_batch = batch;
 	batch *= time_steps; // mini_batch * time_steps
 
 	weights_reject_freq				= net.i("weights_reject_freq"			, 0);
@@ -131,6 +158,7 @@ Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 	burn_in = net.i("burn_in", 0);
 
 	#ifdef GPU
+	/// @todo GPU stuff hasn't been touched
 	if (net->gpu_index >= 0) {
 		char device_name[1024];
 		int compute_capability = get_gpu_compute_capability(net->gpu_index, device_name);
@@ -150,50 +178,19 @@ Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 	}
 	else if (policy == ELearningRatePolicy::kSteps or policy == ELearningRatePolicy::kSGDR)
 	{
-RESUME_FROM_HERE
+		steps		= net.vi("steps"		);	// "steps" is often 2 ints, such as:  steps=4000,6000
+		scales		= net.vf("scales"		);	// "scales" is often 2 floats, such as:  scales=.1,.1
+		seq_scales	= net.vf("seq_scales"	);	// "seq_scales" isn't used in any of the configs I see available
+		num_steps	= steps.size();
 
-		char *l = option_find(options, "steps");
-		char *p = option_find(options, "scales");
-		char *s = option_find(options, "seq_scales");
-
-		if(policy == ELearningRatePolicy::kSteps and(not l or not p))
+		if (policy == ELearningRatePolicy::kSteps and (steps.empty() or scales.empty()))
 		{
 			throw std::runtime_error("\"Steps\" policy must have \"steps\" and \"scales\" in .cfg file");
 		}
 
-		if (l) {
-			int len = strlen(l);
-			int n = 1;
-			int i;
-			for (i = 0; i < len; ++i) {
-				if (l[i] == '#') break;
-				if (l[i] == ',') ++n;
-			}
-			int* steps = (int*)xcalloc(n, sizeof(int));
-			float* scales = (float*)xcalloc(n, sizeof(float));
-			float* seq_scales = (float*)xcalloc(n, sizeof(float));
-			for (i = 0; i < n; ++i) {
-				float scale = 1.0;
-				if (p) {
-					scale = atof(p);
-					p = strchr(p, ',') + 1;
-				}
-				float sequence_scale = 1.0;
-				if (s) {
-					sequence_scale = atof(s);
-					s = strchr(s, ',') + 1;
-				}
-				int step = atoi(l);
-				l = strchr(l, ',') + 1;
-				steps[i] = step;
-				scales[i] = scale;
-				seq_scales[i] = sequence_scale;
-			}
-			net->scales = scales;
-			net->steps = steps;
-			net->seq_scales = seq_scales;
-			net->num_steps = n;
-		}
+		// make sure "scales" and "seq_scales" have exactly the same number of entries as "steps"
+		scales		.resize(num_steps, 1.0f);
+		seq_scales	.resize(num_steps, 1.0f);
 	}
 	else if (policy == ELearningRatePolicy::kEXP)
 	{
@@ -209,7 +206,7 @@ RESUME_FROM_HERE
 //		power = net.f("power", 1.0f);
 	}
 
-	return;
+	return *this;
 }
 
 
@@ -254,13 +251,15 @@ Darknet_ng::Network *Darknet_ng::load_network(char *cfg, char *weights, int clea
 #endif
 
 
+#if 0 /// @todo
 Darknet_ng::Network Darknet_ng::load_network(const std::filesystem::path & cfg_filename, const std::filesystem::path & weights_filename, const bool clear)
 {
 	std::cout
 		<< "Network config .... " << cfg_filename		.string() << std::endl
 		<< "Network weights ... " << weights_filename	.string() << std::endl;
 
-	Network net = parse_network_cfg_custom(cfg_filename, 1, 1);
+	Network net(cfg_filename);
+//	Network net = parse_network_cfg_custom(cfg_filename, 1, 1);
 
 #ifdef WORK_IN_PROGRESS /// @todo
 //	Network net = parse_network_cfg_custom(cfg_filename, batch, 1);
@@ -741,6 +740,7 @@ Darknet_ng::Network Darknet_ng::parse_network_cfg_custom(const std::filesystem::
 			   net.w, net.h);
 	}
 #endif
+#endif
 	Network net;
 	return net;
 }
@@ -772,160 +772,4 @@ Darknet_ng::Network make_network(int n)
 	#endif
 	return net;
 }
-
-
-void parse_net_options(list *options, network *net)
-{
-	net->max_batches = option_find_int(options, "max_batches", 0);
-	net->batch = option_find_int(options, "batch",1);
-	net->learning_rate = option_find_float(options, "learning_rate", .001);
-	net->learning_rate_min = option_find_float_quiet(options, "learning_rate_min", .00001);
-	net->batches_per_cycle = option_find_int_quiet(options, "sgdr_cycle", net->max_batches);
-	net->batches_cycle_mult = option_find_int_quiet(options, "sgdr_mult", 2);
-	net->momentum = option_find_float(options, "momentum", .9);
-	net->decay = option_find_float(options, "decay", .0001);
-	int subdivs = option_find_int(options, "subdivisions",1);
-	net->time_steps = option_find_int_quiet(options, "time_steps",1);
-	net->track = option_find_int_quiet(options, "track", 0);
-	net->augment_speed = option_find_int_quiet(options, "augment_speed", 2);
-	net->init_sequential_subdivisions = net->sequential_subdivisions = option_find_int_quiet(options, "sequential_subdivisions", subdivs);
-	if (net->sequential_subdivisions > subdivs) net->init_sequential_subdivisions = net->sequential_subdivisions = subdivs;
-	net->try_fix_nan = option_find_int_quiet(options, "try_fix_nan", 0);
-	net->batch /= subdivs;          // mini_batch
-	const int mini_batch = net->batch;
-	net->batch *= net->time_steps;  // mini_batch * time_steps
-	net->subdivisions = subdivs;    // number of mini_batches
-
-	net->weights_reject_freq = option_find_int_quiet(options, "weights_reject_freq", 0);
-	net->equidistant_point = option_find_int_quiet(options, "equidistant_point", 0);
-	net->badlabels_rejection_percentage = option_find_float_quiet(options, "badlabels_rejection_percentage", 0);
-	net->num_sigmas_reject_badlabels = option_find_float_quiet(options, "num_sigmas_reject_badlabels", 0);
-	net->ema_alpha = option_find_float_quiet(options, "ema_alpha", 0);
-	*net->badlabels_reject_threshold = 0;
-	*net->delta_rolling_max = 0;
-	*net->delta_rolling_avg = 0;
-	*net->delta_rolling_std = 0;
-	*net->seen = 0;
-	*net->cur_iteration = 0;
-	*net->cuda_graph_ready = 0;
-	net->use_cuda_graph = option_find_int_quiet(options, "use_cuda_graph", 0);
-	net->loss_scale = option_find_float_quiet(options, "loss_scale", 1);
-	net->dynamic_minibatch = option_find_int_quiet(options, "dynamic_minibatch", 0);
-	net->optimized_memory = option_find_int_quiet(options, "optimized_memory", 0);
-	net->workspace_size_limit = (size_t)1024*1024 * option_find_float_quiet(options, "workspace_size_limit_MB", 1024);  // 1024 MB by default
-
-
-	net->adam = option_find_int_quiet(options, "adam", 0);
-	if(net->adam){
-		net->B1 = option_find_float(options, "B1", .9);
-		net->B2 = option_find_float(options, "B2", .999);
-		net->eps = option_find_float(options, "eps", .000001);
-	}
-
-	net->h = option_find_int_quiet(options, "height",0);
-	net->w = option_find_int_quiet(options, "width",0);
-	net->c = option_find_int_quiet(options, "channels",0);
-	net->inputs = option_find_int_quiet(options, "inputs", net->h * net->w * net->c);
-	net->max_crop = option_find_int_quiet(options, "max_crop",net->w*2);
-	net->min_crop = option_find_int_quiet(options, "min_crop",net->w);
-	net->flip = option_find_int_quiet(options, "flip", 1);
-	net->blur = option_find_int_quiet(options, "blur", 0);
-	net->gaussian_noise = option_find_int_quiet(options, "gaussian_noise", 0);
-	net->mixup = option_find_int_quiet(options, "mixup", 0);
-	int cutmix = option_find_int_quiet(options, "cutmix", 0);
-	int mosaic = option_find_int_quiet(options, "mosaic", 0);
-	if (mosaic && cutmix) net->mixup = 4;
-	else if (cutmix) net->mixup = 2;
-	else if (mosaic) net->mixup = 3;
-	net->letter_box = option_find_int_quiet(options, "letter_box", 0);
-	net->mosaic_bound = option_find_int_quiet(options, "mosaic_bound", 0);
-	net->contrastive = option_find_int_quiet(options, "contrastive", 0);
-	net->contrastive_jit_flip = option_find_int_quiet(options, "contrastive_jit_flip", 0);
-	net->contrastive_color = option_find_int_quiet(options, "contrastive_color", 0);
-	net->unsupervised = option_find_int_quiet(options, "unsupervised", 0);
-	if (net->contrastive && mini_batch < 2) {
-		printf(" Error: mini_batch size (batch/subdivisions) should be higher than 1 for Contrastive loss \n");
-		exit(0);
-	}
-	net->label_smooth_eps = option_find_float_quiet(options, "label_smooth_eps", 0.0f);
-	net->resize_step = option_find_float_quiet(options, "resize_step", 32);
-	net->attention = option_find_int_quiet(options, "attention", 0);
-	net->adversarial_lr = option_find_float_quiet(options, "adversarial_lr", 0);
-	net->max_chart_loss = option_find_float_quiet(options, "max_chart_loss", 20.0);
-
-	net->angle = option_find_float_quiet(options, "angle", 0);
-	net->aspect = option_find_float_quiet(options, "aspect", 1);
-	net->saturation = option_find_float_quiet(options, "saturation", 1);
-	net->exposure = option_find_float_quiet(options, "exposure", 1);
-	net->hue = option_find_float_quiet(options, "hue", 0);
-	net->power = option_find_float_quiet(options, "power", 4);
-
-	if(!net->inputs && !(net->h && net->w && net->c)) error("No input parameters supplied", DARKNET_LOC);
-
-	char *policy_s = option_find_str(options, "policy", "constant");
-	net->policy = get_policy(policy_s);
-	net->burn_in = option_find_int_quiet(options, "burn_in", 0);
-	#ifdef GPU
-	if (net->gpu_index >= 0) {
-		char device_name[1024];
-		int compute_capability = get_gpu_compute_capability(net->gpu_index, device_name);
-		#ifdef CUDNN_HALF
-		if (compute_capability >= 700) net->cudnn_half = 1;
-		else net->cudnn_half = 0;
-		#endif// CUDNN_HALF
-		fprintf(stderr, " %d : compute_capability = %d, cudnn_half = %d, GPU: %s \n", net->gpu_index, compute_capability, net->cudnn_half, device_name);
-	}
-	else fprintf(stderr, " GPU isn't used \n");
-	#endif// GPU
-	if(net->policy == STEP){
-		net->step = option_find_int(options, "step", 1);
-		net->scale = option_find_float(options, "scale", 1);
-	} else if (net->policy == STEPS || net->policy == SGDR){
-		char *l = option_find(options, "steps");
-		char *p = option_find(options, "scales");
-		char *s = option_find(options, "seq_scales");
-		if(net->policy == STEPS && (!l || !p)) error("STEPS policy must have steps and scales in cfg file", DARKNET_LOC);
-
-		if (l) {
-			int len = strlen(l);
-			int n = 1;
-			int i;
-			for (i = 0; i < len; ++i) {
-				if (l[i] == '#') break;
-				if (l[i] == ',') ++n;
-			}
-			int* steps = (int*)xcalloc(n, sizeof(int));
-			float* scales = (float*)xcalloc(n, sizeof(float));
-			float* seq_scales = (float*)xcalloc(n, sizeof(float));
-			for (i = 0; i < n; ++i) {
-				float scale = 1.0;
-				if (p) {
-					scale = atof(p);
-					p = strchr(p, ',') + 1;
-				}
-				float sequence_scale = 1.0;
-				if (s) {
-					sequence_scale = atof(s);
-					s = strchr(s, ',') + 1;
-				}
-				int step = atoi(l);
-				l = strchr(l, ',') + 1;
-				steps[i] = step;
-				scales[i] = scale;
-				seq_scales[i] = sequence_scale;
-			}
-			net->scales = scales;
-			net->steps = steps;
-			net->seq_scales = seq_scales;
-			net->num_steps = n;
-		}
-	} else if (net->policy == EXP){
-		net->gamma = option_find_float(options, "gamma", 1);
-	} else if (net->policy == SIG){
-		net->gamma = option_find_float(options, "gamma", 1);
-		net->step = option_find_int(options, "step", 1);
-	} else if (net->policy == POLY || net->policy == RANDOM){
-		//net->power = option_find_float(options, "power", 1);
-	}
-
-}
+#endif

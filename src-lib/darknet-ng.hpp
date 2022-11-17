@@ -7,16 +7,16 @@
 #include <map>
 #include <string>
 #include <vector>
-#include "enums.hpp"
-#include "structs.hpp"
 
 
 namespace Darknet_ng
 {
-	using VStr = std::vector<std::string>;
-	using MStr = std::map<std::string, std::string>;
-	using VI = std::vector<int>;
-	using VF = std::vector<float>;
+	/// @{ Simple type names used throughout Darknet-NG (vectors and maps of commonly-used types).
+	using MStr	= std::map		<std::string, std::string	>;
+	using VStr	= std::vector	<std::string				>;
+	using VI	= std::vector	<int						>;
+	using VF	= std::vector	<float						>;
+	/// @}
 
 	/// Get the version string.  Looks like @p "1.2.3-1".
 	std::string version();
@@ -35,6 +35,7 @@ namespace Darknet_ng
 	/// Read the given text file.  File must exist.
 	VStr read_text_file(const std::filesystem::path & filename);
 
+#if 0 /// @todo remove?
 	/// @{ Load network and get batch size from cfg file.
 //	Network *load_network(char *cfg, char *weights, int clear);
 //	Network *load_network_custom(char *cfg, char *weights, int clear, int batch);
@@ -46,7 +47,13 @@ namespace Darknet_ng
 
 	Network parse_network_cfg(const std::filesystem::path & cfg_filename, int batch = 0, int time_steps = 0);
 	Network parse_network_cfg_custom(const std::filesystem::path & cfg_filename, int batch, int time_steps = 0);
+#endif
 }
 
 
+#include "enums.hpp"
+#include "structs.hpp"
+#include "parser.hpp"
+#include "layers.hpp"
 #include "config.hpp"
+#include "network.hpp"

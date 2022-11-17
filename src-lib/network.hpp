@@ -8,7 +8,8 @@
 
 namespace Darknet_ng
 {
-	/** @todo
+	/** The @p %Network objects contains everything we need to know about the neural network.
+	 * These objects should be long-lived, and can be instantiated on the caller's stack.
 	 *
 	 * @since 2022-11-13
 	 */
@@ -22,8 +23,22 @@ namespace Darknet_ng
 			/// Constructor.
 			Network(const std::filesystem::path & cfg_filename);
 
+			/// Reset all of the network so the object can be re-used.  Call @ref load() after calling @ref clear().
+			Network & clear();
+
+			/// Load the given network.  This is automatically called by the constructor when a filename has been provided.
+			Network & load(const std::filesystem::path & cfg_filename);
+
+			/// Parse the @p [net] section from the configuration.
+			Network & parse_net(const Config & cfg);
+
+			/// Configuration file.  @see @ref load()
+			Config cfg;
+
+			/// Network layers.  @see @ref load()
 			Layers layers;
 
+			int gpu_index;						///< set to -1 for no GPU or >= 0 to use the given GPU
 			int max_batches;					///< [net][max_batches]
 			int batch;							///< [net][batch]
 			float learning_rate;				///< [net][learning_rate]
@@ -54,6 +69,7 @@ namespace Darknet_ng
 			int cur_iteration;
 			bool cuda_graph_ready;
 			// **********************
+
 			bool use_cuda_graph;				///< [net][use_cuda_graph]
 			float loss_scale;					///< [net][loss_scale]
 			int dynamic_minibatch;				///< [net][dynamic_minibatch]
@@ -97,9 +113,16 @@ namespace Darknet_ng
 			ELearningRatePolicy policy;			///< [net][policy]
 
 			int burn_in;						///< [net][burn_in]
+			int step;							///< [net][step]
+			float scale;						///< [net][scale]
+
+			VI steps;							///< [net][steps]
+			VF scales;							///< [net][scales]
+			VF seq_scales;						///< [net][seq_scales]
+			int num_steps;						///< number of entries in @ref steps @todo this can be removed since "steps" is now much easier to manage
+			float gamma;						///< [net][gamma]
 
 #ifdef WORK_IN_PROGRESS /// @todo
-
 			int n;	// the number of layers in the network (sections - 1, since [net] doesn't count)
 			int *t;
 			float epoch;
@@ -110,15 +133,8 @@ namespace Darknet_ng
 			int *rewritten_bbox;
 
 			float learning_rate_max;
-			float gamma;
-			float scale;
-			int step;
 			int num_boxes;
 			int train_images_num;
-			float *seq_scales;
-			float *scales;
-			int   *steps;
-			int num_steps;
 			int cudnn_half;
 
 			int outputs;
@@ -131,7 +147,6 @@ namespace Darknet_ng
 			int random;
 			int current_subdivision;
 
-			int gpu_index; ///< set to -1 for no GPU or >= 0 to use the given GPU
 			Tree *hierarchy;
 
 			float *input;
@@ -169,5 +184,6 @@ namespace Darknet_ng
 			float *state_delta_gpu;
 			size_t max_delta_gpu_size;
 			//#endif  // GPU
+#endif
 	};
 }

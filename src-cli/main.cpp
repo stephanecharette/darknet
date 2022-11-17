@@ -9,6 +9,7 @@ int main(int argc, char ** argv)
 {
 	std::cout << "Darknet Next Generation v" << Darknet_ng::version() << std::endl;
 
+#if 0
 	Darknet_ng::Config cfg("test.cfg");
 	std::cout << cfg << std::endl;
 
@@ -19,6 +20,9 @@ int main(int argc, char ** argv)
 		<< "yolo layers ..... " << cfg.count("yolo")			<< std::endl
 		<< "yolo line # ..... " << cfg["yolo"].line_number		<< std::endl
 		<< cfg["net"]											<< std::endl;
+#endif
+
+	Darknet_ng::Network network("test.cfg");
 
 	return 0;
 }

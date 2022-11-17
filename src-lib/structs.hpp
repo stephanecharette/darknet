@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "enums.hpp"
+#include "darknet-ng.hpp"
 
 
 namespace Darknet_ng
@@ -63,7 +63,9 @@ namespace Darknet_ng
 		float *workspace;
 		int train;
 		int index;
+#if 0 /// @todo
 		Network net;
+#endif
 	};
 
 	struct Box /// was: box

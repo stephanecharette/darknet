@@ -71,6 +71,8 @@ int Darknet_ng::Section::i(const std::string & key) const
 
 	const std::string & val = kv_pairs.at(key_name);
 
+	std::cout << "i[" << key_name << "]=" << val << std::endl;
+
 	int result = 0;
 	try
 	{
@@ -91,6 +93,7 @@ int Darknet_ng::Section::i(const std::string & key, const int default_value) con
 
 	if (kv_pairs.count(key_name) == 0)
 	{
+		std::cout << "i[" << key_name << "]=" << default_value << " (default value)" << std::endl;
 		return default_value;
 	}
 
@@ -103,6 +106,8 @@ float Darknet_ng::Section::f(const std::string & key) const
 	const auto key_name = lowercase(key);
 
 	const std::string & val = kv_pairs.at(key_name);
+
+	std::cout << "f[" << key_name << "]=" << val << std::endl;
 
 	float result = 0.0f;
 	try
@@ -124,6 +129,7 @@ float Darknet_ng::Section::f(const std::string & key, const float default_value)
 
 	if (kv_pairs.count(key_name) == 0)
 	{
+		std::cout << "f[" << key_name << "]=" << default_value << " (default value)" << std::endl;
 		return default_value;
 	}
 
@@ -141,6 +147,7 @@ bool Darknet_ng::Section::b(const std::string & key) const
 		val == "off" or
 		val == "false")
 	{
+		std::cout << "b[" << key_name << "]=false" << std::endl;
 		return false;
 	}
 
@@ -149,6 +156,7 @@ bool Darknet_ng::Section::b(const std::string & key) const
 		val == "on" or
 		val == "true")
 	{
+		std::cout << "b[" << key_name << "]=true" << std::endl;
 		return true;
 	}
 
@@ -162,6 +170,7 @@ bool Darknet_ng::Section::b(const std::string & key, const bool default_value) c
 
 	if (kv_pairs.count(key_name) == 0)
 	{
+		std::cout << "b[" << key_name << "]=" << default_value << " (default value)" << std::endl;
 		return default_value;
 	}
 
@@ -173,6 +182,8 @@ const std::string & Darknet_ng::Section::s(const std::string & key) const
 {
 	const auto key_name = lowercase(key);
 
+	std::cout << "f[" << key_name << "]=" << kv_pairs.at(key_name) << std::endl;
+
 	return kv_pairs.at(key_name);
 }
 
@@ -183,6 +194,7 @@ std::string Darknet_ng::Section::s(const std::string & key, const std::string & 
 
 	if (kv_pairs.count(key_name) == 0)
 	{
+		std::cout << "s[" << key_name << "]=" << default_value << " (default value)" << std::endl;
 		return default_value;
 	}
 
@@ -192,15 +204,22 @@ std::string Darknet_ng::Section::s(const std::string & key, const std::string & 
 
 Darknet_ng::VI Darknet_ng::Section::vi(const std::string & key) const
 {
+	const auto key_name = lowercase(key);
+
 	// for example:  steps=-1,100,20000,30000
 
 	VI v;
 	std::string token;
-	std::stringstream ss(s(key, ""));
+	std::stringstream ss(s(key_name, ""));
+	std::cout << "vi[" << key_name << "]=";
+
 	while (std::getline(ss, token, ','))
 	{
-		v.push_back(std::stod(token));
+		const auto val = std::stoi(token);
+		std::cout << val << " ";
+		v.push_back(val);
 	}
+	std::cout << std::endl;
 
 	return v;
 }
@@ -208,15 +227,22 @@ Darknet_ng::VI Darknet_ng::Section::vi(const std::string & key) const
 
 Darknet_ng::VF Darknet_ng::Section::vf(const std::string & key) const
 {
+	const auto key_name = lowercase(key);
+
 	// for example:  scales=.1,.1
 
 	VF v;
 	std::string token;
-	std::stringstream ss(s(key, ""));
+	std::stringstream ss(s(key_name, ""));
+	std::cout << "vf[" << key_name << "]=";
+
 	while (std::getline(ss, token, ','))
 	{
-		v.push_back(std::stof(token));
+		const auto val = std::stof(token);
+		std::cout << val << " ";
+		v.push_back(val);
 	}
+	std::cout << std::endl;
 
 	return v;
 }
