@@ -12,6 +12,14 @@ Darknet_ng::Network::~Network()
 }
 
 
+Darknet_ng::Network::Network()
+{
+	clear();
+
+	return;
+}
+
+
 Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 {
 	load(cfg_filename);
@@ -35,6 +43,16 @@ Darknet_ng::Network & Darknet_ng::Network::clear()
 	layers		.clear();
 
 	return *this;
+}
+
+
+bool Darknet_ng::Network::empty() const
+{
+	return
+		steps		.empty() or
+		scales		.empty() or
+		seq_scales	.empty() or
+		layers		.empty();
 }
 
 

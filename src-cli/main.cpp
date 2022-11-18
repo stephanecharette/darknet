@@ -22,7 +22,38 @@ int main(int argc, char ** argv)
 		<< cfg["net"]											<< std::endl;
 #endif
 
-	Darknet_ng::Network network("test.cfg");
+	Darknet_ng::Network network;
+	network.load("test.cfg");
+
+	std::cout
+		<< "gpu_index="				<< network.settings.gpu_index			<< std::endl
+		<< "max_batches="			<< network.settings.max_batches			<< std::endl
+		<< "batch="					<< network.settings.batch				<< std::endl
+		<< "learning_rate="			<< network.settings.learning_rate		<< std::endl
+		<< "learning_rate_min="		<< network.settings.learning_rate_min	<< std::endl
+		<< "batches_per_cycle="		<< network.settings.batches_per_cycle	<< std::endl
+		<< "batches_cycle_mult="	<< network.settings.batches_cycle_mult	<< std::endl
+		<< "momentum="				<< network.settings.batches_cycle_mult	<< std::endl
+		<< "decay="					<< network.settings.decay				<< std::endl
+		<< "subdivisions="			<< network.settings.subdivisions		<< std::endl
+		<< "EMPTY="					<< network.empty()						<< std::endl
+		<< "LOADED="				<< network.loaded()						<< std::endl;
+
+	network.clear();
+
+	std::cout
+		<< "gpu_index="				<< network.settings.gpu_index			<< std::endl
+		<< "max_batches="			<< network.settings.max_batches			<< std::endl
+		<< "batch="					<< network.settings.batch				<< std::endl
+		<< "learning_rate="			<< network.settings.learning_rate		<< std::endl
+		<< "learning_rate_min="		<< network.settings.learning_rate_min	<< std::endl
+		<< "batches_per_cycle="		<< network.settings.batches_per_cycle	<< std::endl
+		<< "batches_cycle_mult="	<< network.settings.batches_cycle_mult	<< std::endl
+		<< "momentum="				<< network.settings.batches_cycle_mult	<< std::endl
+		<< "decay="					<< network.settings.decay				<< std::endl
+		<< "subdivisions="			<< network.settings.subdivisions		<< std::endl
+		<< "EMPTY="					<< network.empty()						<< std::endl
+		<< "LOADED="				<< network.loaded()						<< std::endl;
 
 	return 0;
 }

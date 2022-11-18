@@ -20,11 +20,19 @@ namespace Darknet_ng
 			/// Destructor.
 			~Network();
 
+			/// Constructor.  You'll need to call @ref load().
+			Network();
+
 			/// Constructor.  This automatically calls @ref load().
 			Network(const std::filesystem::path & cfg_filename);
 
 			/// Reset all of the network so the object can be re-used.  You'll need to call @ref load() after @ref clear().
 			Network & clear();
+
+			/// @{ Determines if a neural network has been loaded.
+			bool empty() const;
+			bool loaded() const { return not empty(); }
+			/// @}
 
 			/** Load the given network.  This is automatically called by the constructor when a filename has been provided,
 			 * or it can be manually called with a specific filename to trigger the network to load.
