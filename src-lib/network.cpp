@@ -3,6 +3,7 @@
 
 #include "darknet-ng.hpp"
 #include <iostream>
+#include <cstring>
 
 
 Darknet_ng::Network::~Network()
@@ -21,12 +22,17 @@ Darknet_ng::Network::Network(const std::filesystem::path & cfg_filename)
 
 Darknet_ng::Network & Darknet_ng::Network::clear()
 {
-	cfg			.clear();
+	std::memset(&settings, '\0', sizeof(Settings));
+
+	// anything more complex than the POD fields in the Settings, or anything
+	// that needs to be set to a value other than zero must be handled here
+
+	settings.gpu_index = -1; // do not use the GPU
+
+	steps		.clear();
+	scales		.clear();
+	seq_scales	.clear();
 	layers		.clear();
-
-	gpu_index	= -1; // do not use the GPU
-
-	/// @todo lots more to add!
 
 	return *this;
 }
@@ -36,7 +42,7 @@ Darknet_ng::Network & Darknet_ng::Network::load(const std::filesystem::path & cf
 {
 	clear();
 
-	cfg.read(cfg_filename);
+	Config cfg(cfg_filename);
 	parse_net(cfg);
 
 	return *this;
@@ -47,115 +53,117 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Config & cfg)
 {
 	const auto & net = *cfg.sections.begin(); // required to be [net] or [network]
 
-	max_batches						= net.i("max_batches"					, 0);
-	batch							= net.i("batch"							, 1);
-	learning_rate					= net.f("learning_rate"					, 0.001f);
-	learning_rate_min				= net.f("learning_rate_min"				, 0.00001f);
-	batches_per_cycle				= net.i("sgdr_cycle"					, max_batches);
-	batches_cycle_mult				= net.i("sgdr_mult"						, 2);
-	momentum						= net.f("momentum"						, 0.9f);
-	decay							= net.f("decay"							, 0.0001f);
-	subdivisions					= net.i("subdivisions"					, 1);
-	time_steps						= net.i("time_steps"					, 1);
-	track							= net.i("track"							, 0);
-	augment_speed					= net.i("augment_speed"					, 2);
-	init_sequential_subdivisions	= net.i("sequential_subdivisions"		, subdivisions);
-	sequential_subdivisions			= init_sequential_subdivisions;
-	if (sequential_subdivisions > subdivisions)
+	settings.max_batches					= net.i("max_batches"					, 0);
+	settings.batch							= net.i("batch"							, 1);
+	settings.learning_rate					= net.f("learning_rate"					, 0.001f);
+	settings.learning_rate_min				= net.f("learning_rate_min"				, 0.00001f);
+	settings.batches_per_cycle				= net.i("sgdr_cycle"					, settings.max_batches);
+	settings.batches_cycle_mult				= net.i("sgdr_mult"						, 2);
+	settings.momentum						= net.f("momentum"						, 0.9f);
+	settings.decay							= net.f("decay"							, 0.0001f);
+	settings.subdivisions					= net.i("subdivisions"					, 1);
+	settings.time_steps						= net.i("time_steps"					, 1);
+	settings.track							= net.i("track"							, 0);
+	settings.augment_speed					= net.i("augment_speed"					, 2);
+	settings.init_sequential_subdivisions	= net.i("sequential_subdivisions"		, settings.subdivisions);
+	settings.sequential_subdivisions		= settings.init_sequential_subdivisions;
+
+	if (settings.sequential_subdivisions > settings.subdivisions)
 	{
-		init_sequential_subdivisions	= subdivisions;
-		sequential_subdivisions			= subdivisions;
+		settings.init_sequential_subdivisions	= settings.subdivisions;
+		settings.sequential_subdivisions		= settings.subdivisions;
 	}
-	try_fix_nan						= net.i("try_fix_nan"					, 0);
-	batch /= subdivisions; // mini_batch
-	const auto mini_batch = batch;
-	batch *= time_steps; // mini_batch * time_steps
 
-	weights_reject_freq				= net.i("weights_reject_freq"			, 0);
-	equidistant_point				= net.i("equidistant_point"				, 0);
-	badlabels_rejection_percentage	= net.f("badlabels_rejection_percentage", 0.0f);
-	num_sigmas_reject_badlabels		= net.f("num_sigmas_reject_badlabels"	, 0.0f);
-	ema_alpha						= net.f("ema_alpha"						, 0.0f);
+	settings.try_fix_nan						= net.i("try_fix_nan"					, 0);
+	settings.batch /= settings.subdivisions; // mini_batch
+	const auto mini_batch = settings.batch;
+	settings.batch *= settings.time_steps; // mini_batch * time_steps
 
-	badlabels_reject_threshold		= 0.0f;
-	delta_rolling_max				= 0.0f;
-	delta_rolling_avg				= 0.0f;
-	delta_rolling_std				= 0.0f;
-	seen							= 0;
-	cur_iteration					= 0;
-	cuda_graph_ready				= false;
-	use_cuda_graph					= net.b("use_cuda_graph"				, false);
-	loss_scale						= net.f("loss_scale"					, 1.0f);
-	dynamic_minibatch				= net.i("dynamic_minibatch"				, 0);
-	optimized_memory				= net.i("optimized_memory"				, 0);
+	settings.weights_reject_freq			= net.i("weights_reject_freq"			, 0);
+	settings.equidistant_point				= net.i("equidistant_point"				, 0);
+	settings.badlabels_rejection_percentage	= net.f("badlabels_rejection_percentage", 0.0f);
+	settings.num_sigmas_reject_badlabels	= net.f("num_sigmas_reject_badlabels"	, 0.0f);
+	settings.ema_alpha						= net.f("ema_alpha"						, 0.0f);
+
+	settings.badlabels_reject_threshold		= 0.0f;
+	settings.delta_rolling_max				= 0.0f;
+	settings.delta_rolling_avg				= 0.0f;
+	settings.delta_rolling_std				= 0.0f;
+	settings.seen							= 0;
+	settings.cur_iteration					= 0;
+	settings.cuda_graph_ready				= false;
+	settings.use_cuda_graph					= net.b("use_cuda_graph"				, false);
+	settings.loss_scale						= net.f("loss_scale"					, 1.0f);
+	settings.dynamic_minibatch				= net.i("dynamic_minibatch"				, 0);
+	settings.optimized_memory				= net.i("optimized_memory"				, 0);
 
 	/// @todo This is called @p workspace_size_limit_MB but since it is multiplied by 1024*1024, isn't it GiB, not MiB?
-	workspace_size_limit			= net.f("workspace_size_limit_MB"		, 1024.0f) * 1024.0f * 1024.0f; // 1 GiB by default
+	settings.workspace_size_limit			= net.f("workspace_size_limit_MB"		, 1024.0f) * 1024.0f * 1024.0f; // 1 GiB by default
 
-	adam							= net.b("adam"							, false);
-	B1								= net.f("B1"							, 0.9f);
-	B2								= net.f("B2"							, 0.999f);
-	eps								= net.f("eps"							, 0.000001f);
+	settings.adam							= net.b("adam"							, false);
+	settings.B1								= net.f("B1"							, 0.9f);
+	settings.B2								= net.f("B2"							, 0.999f);
+	settings.eps							= net.f("eps"							, 0.000001f);
 
-	h								= net.i("height"						,0);
-	w								= net.i("width"							,0);
-	c								= net.i("channels"						,0);
+	settings.h								= net.i("height"						,0);
+	settings.w								= net.i("width"							,0);
+	settings.c								= net.i("channels"						,0);
 
-	inputs							= net.i("inputs"						, h * w * c);
-	max_crop						= net.i("max_crop"						, w * 2);
-	min_crop						= net.i("min_crop"						, w);
-	flip							= net.i("flip"							, true);
-	blur							= net.i("blur"							, 0);
-	gaussian_noise					= net.i("gaussian_noise"				, 0);
-	mixup							= net.i("mixup"							, 0);
+	settings.inputs							= net.i("inputs"						, settings.h * settings.w * settings.c);
+	settings.max_crop						= net.i("max_crop"						, settings.w * 2);
+	settings.min_crop						= net.i("min_crop"						, settings.w);
+	settings.flip							= net.i("flip"							, true);
+	settings.blur							= net.i("blur"							, 0);
+	settings.gaussian_noise					= net.i("gaussian_noise"				, 0);
+	settings.mixup							= net.i("mixup"							, 0);
 
-	int cutmix = net.i("cutmix", 0);
-	int mosaic = net.i("mosaic", 0);
+	const int cutmix = net.i("cutmix", 0);
+	const int mosaic = net.i("mosaic", 0);
 	if (mosaic and cutmix)
 	{
-		mixup = 4;
+		settings.mixup = 4;
 	}
 	else if (mosaic)
 	{
-		mixup = 3;
+		settings.mixup = 3;
 	}
 	else if (cutmix)
 	{
-		mixup = 2;
+		settings.mixup = 2;
 	}
 
-	letter_box						= net.i("letter_box"					, 0);
-	mosaic_bound					= net.i("mosaic_bound"					, 0);
-	contrastive						= net.i("contrastive"					, 0);
-	contrastive_jit_flip			= net.i("contrastive_jit_flip"			, 0);
-	contrastive_color				= net.i("contrastive_color"				, 0);
-	unsupervised					= net.i("unsupervised"					, 0);
+	settings.letter_box						= net.i("letter_box"					, 0);
+	settings.mosaic_bound					= net.i("mosaic_bound"					, 0);
+	settings.contrastive					= net.i("contrastive"					, 0);
+	settings.contrastive_jit_flip			= net.i("contrastive_jit_flip"			, 0);
+	settings.contrastive_color				= net.i("contrastive_color"				, 0);
+	settings.unsupervised					= net.i("unsupervised"					, 0);
 
-	if (contrastive and mini_batch < 2)
+	if (settings.contrastive and mini_batch < 2)
 	{
 		throw std::runtime_error("mini_batch size (batch/subdivisions) should be higher than 1 for Contrastive loss");
 	}
 
-	label_smooth_eps				= net.f("label_smooth_eps"				, 0.0f);
-	resize_step						= net.i("resize_step"					, 32);
-	attention						= net.i("attention"						, 0);
-	adversarial_lr					= net.f("adversarial_lr"				, 0.0f);
-	max_chart_loss					= net.f("max_chart_loss"				, 20.0f);
-	angle							= net.f("angle"							, 0.0f);
-	aspect							= net.f("aspect"						, 1.0f);
-	saturation						= net.f("saturation"					, 1.0f);
-	exposure						= net.f("exposure"						, 1.0f);
-	hue								= net.f("hue"							, 0.0f);
-	power							= net.f("power"							, 4.0f);
+	settings.label_smooth_eps				= net.f("label_smooth_eps"				, 0.0f);
+	settings.resize_step					= net.i("resize_step"					, 32);
+	settings.attention						= net.i("attention"						, 0);
+	settings.adversarial_lr					= net.f("adversarial_lr"				, 0.0f);
+	settings.max_chart_loss					= net.f("max_chart_loss"				, 20.0f);
+	settings.angle							= net.f("angle"							, 0.0f);
+	settings.aspect							= net.f("aspect"						, 1.0f);
+	settings.saturation						= net.f("saturation"					, 1.0f);
+	settings.exposure						= net.f("exposure"						, 1.0f);
+	settings.hue								= net.f("hue"							, 0.0f);
+	settings.power							= net.f("power"							, 4.0f);
 
-	if (not inputs and not (h and w and c))
+	if (not settings.inputs and not (settings.h and settings.w and settings.c))
 	{
 		throw std::runtime_error("no input parameters supplied");
 	}
 
-	policy = learning_rate_policy_from_string(net.s("policy", "constant"));
+	settings.policy = learning_rate_policy_from_string(net.s("policy", "constant"));
 
-	burn_in = net.i("burn_in", 0);
+	settings.burn_in = net.i("burn_in", 0);
 
 	#ifdef GPU
 	/// @todo GPU stuff hasn't been touched
@@ -171,39 +179,39 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Config & cfg)
 	else fprintf(stderr, " GPU isn't used \n");
 	#endif// GPU
 
-	if (policy == ELearningRatePolicy::kStep)
+	if (settings.policy == ELearningRatePolicy::kStep)
 	{
-		step	= net.i("step"	, 1		);
-		scale	= net.f("scale"	, 1.0f	);
+		settings.step	= net.i("step"	, 1		);
+		settings.scale	= net.f("scale"	, 1.0f	);
 	}
-	else if (policy == ELearningRatePolicy::kSteps or policy == ELearningRatePolicy::kSGDR)
+	else if (settings.policy == ELearningRatePolicy::kSteps or settings.policy == ELearningRatePolicy::kSGDR)
 	{
 		steps		= net.vi("steps"		);	// "steps" is often 2 ints, such as:  steps=4000,6000
 		scales		= net.vf("scales"		);	// "scales" is often 2 floats, such as:  scales=.1,.1
 		seq_scales	= net.vf("seq_scales"	);	// "seq_scales" isn't used in any of the configs I see available
-		num_steps	= steps.size();
+		settings.num_steps = steps.size();
 
-		if (policy == ELearningRatePolicy::kSteps and (steps.empty() or scales.empty()))
+		if (settings.policy == ELearningRatePolicy::kSteps and (steps.empty() or scales.empty()))
 		{
 			throw std::runtime_error("\"Steps\" policy must have \"steps\" and \"scales\" in .cfg file");
 		}
 
 		// make sure "scales" and "seq_scales" have exactly the same number of entries as "steps"
-		scales		.resize(num_steps, 1.0f);
-		seq_scales	.resize(num_steps, 1.0f);
+		scales		.resize(settings.num_steps, 1.0f);
+		seq_scales	.resize(settings.num_steps, 1.0f);
 	}
-	else if (policy == ELearningRatePolicy::kEXP)
+	else if (settings.policy == ELearningRatePolicy::kEXP)
 	{
-		gamma = net.f("gamma", 1.0f);
+		settings.gamma = net.f("gamma", 1.0f);
 	}
-	else if (policy == ELearningRatePolicy::kSigmoid)
+	else if (settings.policy == ELearningRatePolicy::kSigmoid)
 	{
-		step	= net.i("step"	, 1		);
-		gamma	= net.f("gamma"	, 1.0f	);
+		settings.step	= net.i("step"	, 1		);
+		settings.gamma	= net.f("gamma"	, 1.0f	);
 	}
-	else if (policy == ELearningRatePolicy::kPoly or policy == ELearningRatePolicy::kRandom)
+	else if (settings.policy == ELearningRatePolicy::kPoly or settings.policy == ELearningRatePolicy::kRandom)
 	{
-//		power = net.f("power", 1.0f);
+//		settings.power = net.f("power", 1.0f);
 	}
 
 	return *this;
