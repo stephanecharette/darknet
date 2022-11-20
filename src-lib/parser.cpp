@@ -1,9 +1,7 @@
 // Darknet Next Gen - Darknet YOLO framework for computer vision / object detection.
 // MIT license applies.  See "license.txt" for details.
 
-#include <map>
 #include "darknet-ng.hpp"
-#include "parser.hpp"
 
 
 Darknet_ng::ELearningRatePolicy Darknet_ng::learning_rate_policy_from_string(const std::string & str)

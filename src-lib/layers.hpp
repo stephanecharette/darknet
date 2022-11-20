@@ -10,6 +10,76 @@
 
 namespace Darknet_ng
 {
+	/// Was:  LAYER_TYPE
+	enum class ELayerType
+	{
+		kConvolutional		= 0,
+		kDeconvolutional	,
+		kConnected			,
+		kMaxPool			,
+		kLocalAvgPool		,
+		kSoftMax			,
+		kDetection			,
+		kDropout			,
+		kCrop				,
+		kRoute				,
+		kCost				,
+		kNormalization		, ///< @todo unused?
+		kAvgPool			,
+		kLocal				,
+		kShortcut			,
+		kScaleChannels		,
+		kSam				,
+		kActive				, ///< activation
+		kRNN				,
+		kGRU				,
+		kLSTM				,
+		kConvLSTM			,
+		kHistory			,
+		kCRNN				,
+		kBatchNorm			,
+		kNetwork			,
+		kXNOR				, ///< @todo does this exist?
+		kRegion				,
+		kYOLO				,
+		kGaussianYOLO		,
+		kISEG				, ///< @todo does this exist?
+		kReorg				,
+		kReorgOld			,
+		kUpsample			,
+		kLogXent			, ///< @todo does this exist?
+		kL2Norm				, ///< @todo does this exist?
+		kEmpty				,
+		kBlank				, ///< @todo does this exist?
+		kContrastive		,
+		kImplicit			,
+		// remember to update to_string() if you add a new learning rate policy
+		kMax
+	};
+
+	/** Map a text string to a layer type.  For example, @p "yolo" can be mapped to @p ELayerType::kYOLO.
+	 *
+	 * @see @ref get_all_layer_types_map()
+	 * @see @ref layer_type_from_string()
+	 */
+	using MStrLayerType = std::map<std::string, ELayerType>;
+
+	/** Get a map of all the names to the corresponding layer type.  For example, the map will contain a mapping from
+	 * @p "yolo" to @ref ELayerType::kYOLO.
+	 *
+	 * @note Some layers have multiple names to maintain backwards compatibility and will have multiple map entries.
+	 *
+	 * @see @ref layer_type_from_string()
+	 */
+	const MStrLayerType & get_all_layer_types_map();
+
+	/// Get the layer type from the given string.  Must be an exact match, otherwise this will throw.
+	ELayerType layer_type_from_string(const std::string & str);
+
+	/// Convert the layer type to a text string.  These are the section names in the config file.
+	std::string to_string(const ELayerType & layer_type);
+
+
 	struct Layer /// was: layer
 	{
 		ELayerType		type;

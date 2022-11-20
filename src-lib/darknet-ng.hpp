@@ -9,6 +9,7 @@
 #include <vector>
 
 
+/// The Darknet-NG namespace.
 namespace Darknet_ng
 {
 	/// @{ Simple type names used throughout Darknet-NG (vectors and maps of commonly-used types).
@@ -26,33 +27,20 @@ namespace Darknet_ng
 	std::string & strip_text(std::string & line);
 	/// @}
 
-	/// Get the lowercase version of the given text.  The original is untouched.
+	/// Get the lowercase version of the given text.  The original string is untouched.
 	std::string lowercase(const std::string & text);
 
 	/// Convert the given string to lowercase.
 	std::string & lowercase(std::string & text);
 
-	/// Read the given text file.  File must exist.
+	/// Read the given text file line-by-line and store in a vector.  File must exist.
 	VStr read_text_file(const std::filesystem::path & filename);
-
-#if 0 /// @todo remove?
-	/// @{ Load network and get batch size from cfg file.
-//	Network *load_network(char *cfg, char *weights, int clear);
-//	Network *load_network_custom(char *cfg, char *weights, int clear, int batch);
-	Network load_network(
-		const std::filesystem::path & cfg_filename,
-		const std::filesystem::path & weights_filename,
-		const bool clear = true);
-	/// @}
-
-	Network parse_network_cfg(const std::filesystem::path & cfg_filename, int batch = 0, int time_steps = 0);
-	Network parse_network_cfg_custom(const std::filesystem::path & cfg_filename, int batch, int time_steps = 0);
-#endif
 }
 
 
 #include "enums.hpp"
 #include "structs.hpp"
+#include "activation.hpp"
 #include "parser.hpp"
 #include "layers.hpp"
 #include "config.hpp"

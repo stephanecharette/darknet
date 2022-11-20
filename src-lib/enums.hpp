@@ -14,51 +14,6 @@ namespace Darknet_ng
 		UNUSED_DEF_VAL
 	};
 
-	/// was:  LAYER_TYPE
-	enum class ELayerType
-	{
-		kConvolutional		,
-		kDeconvolutional	,
-		kConnected			,
-		kMaxPool			,
-		kLocalAvgPool		,
-		kSoftMax			,
-		kDetection			,
-		kDropout			,
-		kCrop				,
-		kRoute				,
-		kCost				,
-		kNormalization		,
-		kAvgPool			,
-		kLocal				,
-		kShortcut			,
-		kScaleChannels		,
-		kSam				,
-		kActive				,
-		kRNN				,
-		kGRU				,
-		kLSTM				,
-		kConvLSTM			,
-		kHistory			,
-		kCRNN				,
-		kBatchNorm			,
-		kNetwork			,
-		kXNOR				,
-		kRegion				,
-		kYOLO				,
-		kGaussianYOLO		,
-		kISEG				,
-		kReorg				,
-		kReorgOld			,
-		kUpsample			,
-		kLogXent			,
-		kL2Norm				,
-		kEmpty				,
-		kBlank				,
-		kContrastive		,
-		kImplicit
-	};
-
 	enum class ECostType
 	{
 		kSSE	,
@@ -107,32 +62,6 @@ namespace Darknet_ng
 		kSoftmaxNormalization
 	};
 
-	enum class EActivation /// was: ACTIVATION
-	{
-		kLogistic				,
-		kRELU					,
-		kRELU6					,
-		kRELIE					,
-		kLinear					,
-		kRamp					,
-		kTANH					,
-		kPLSE					,
-		kRevLeaky				,
-		kLeaky					,
-		kELU					,
-		kLOGGY					,
-		kStair					,
-		kHardTAN				,
-		kLHTAN					,
-		kSELU					,
-		kGELU					,
-		kSWISH					,
-		kMISH					,
-		kHardMISH				,
-		kNormCHAN				,
-		kNormCHANSoftmax		,
-		kNormCHANSoftmaxMaxVal
-	};
 
 	enum class EBinaryActivation /// was: BINARY_ACTIVATION
 	{

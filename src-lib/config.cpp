@@ -363,10 +363,9 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 		throw std::invalid_argument("configuration file is empty: \"" + cfg_filename.string() + "\"");
 	}
 
-	if (sections[0].name != "net" and
-		sections[0].name != "network")
+	if (layer_type_from_string(sections[0].name) != ELayerType::kNetwork)
 	{
-		throw std::runtime_error("configuration file does not start with [net] nor [network]: " + cfg_filename.string() + "\"");
+		throw std::runtime_error("configuration file must start with [net] or [network] section: " + cfg_filename.string() + "\"");
 	}
 
 	return *this;

@@ -47,54 +47,6 @@ void empty_func(dropout_layer l, network_state state) {
 
 list *read_cfg(char *filename);
 
-LAYER_TYPE string_to_layer_type(char * type)
-{
-
-    if (strcmp(type, "[shortcut]")==0) return SHORTCUT;
-    if (strcmp(type, "[scale_channels]") == 0) return SCALE_CHANNELS;
-    if (strcmp(type, "[sam]") == 0) return SAM;
-    if (strcmp(type, "[crop]")==0) return CROP;
-    if (strcmp(type, "[cost]")==0) return COST;
-    if (strcmp(type, "[detection]")==0) return DETECTION;
-    if (strcmp(type, "[region]")==0) return REGION;
-    if (strcmp(type, "[yolo]") == 0) return YOLO;
-    if (strcmp(type, "[Gaussian_yolo]") == 0) return GAUSSIAN_YOLO;
-    if (strcmp(type, "[local]")==0) return LOCAL;
-    if (strcmp(type, "[conv]")==0
-            || strcmp(type, "[convolutional]")==0) return CONVOLUTIONAL;
-    if (strcmp(type, "[activation]")==0) return ACTIVE;
-    if (strcmp(type, "[net]")==0
-            || strcmp(type, "[network]")==0) return NETWORK;
-    if (strcmp(type, "[crnn]")==0) return CRNN;
-    if (strcmp(type, "[gru]")==0) return GRU;
-    if (strcmp(type, "[lstm]")==0) return LSTM;
-    if (strcmp(type, "[conv_lstm]") == 0) return CONV_LSTM;
-    if (strcmp(type, "[history]") == 0) return HISTORY;
-    if (strcmp(type, "[rnn]")==0) return RNN;
-    if (strcmp(type, "[conn]")==0
-            || strcmp(type, "[connected]")==0) return CONNECTED;
-    if (strcmp(type, "[max]")==0
-            || strcmp(type, "[maxpool]")==0) return MAXPOOL;
-    if (strcmp(type, "[local_avg]") == 0
-        || strcmp(type, "[local_avgpool]") == 0) return LOCAL_AVGPOOL;
-    if (strcmp(type, "[reorg3d]")==0) return REORG;
-    if (strcmp(type, "[reorg]") == 0) return REORG_OLD;
-    if (strcmp(type, "[avg]")==0
-            || strcmp(type, "[avgpool]")==0) return AVGPOOL;
-    if (strcmp(type, "[dropout]")==0) return DROPOUT;
-    if (strcmp(type, "[lrn]")==0
-            || strcmp(type, "[normalization]")==0) return NORMALIZATION;
-    if (strcmp(type, "[batchnorm]")==0) return BATCHNORM;
-    if (strcmp(type, "[soft]")==0
-            || strcmp(type, "[softmax]")==0) return SOFTMAX;
-    if (strcmp(type, "[contrastive]") == 0) return CONTRASTIVE;
-    if (strcmp(type, "[route]")==0) return ROUTE;
-    if (strcmp(type, "[upsample]") == 0) return UPSAMPLE;
-    if (strcmp(type, "[empty]") == 0
-        || strcmp(type, "[silence]") == 0) return EMPTY;
-    if (strcmp(type, "[implicit]") == 0) return IMPLICIT;
-    return BLANK;
-}
 
 void free_section(section *s)
 {
@@ -161,89 +113,6 @@ local_layer parse_local(list *options, size_params params)
     return layer;
 }
 
-convolutional_layer parse_convolutional(list *options, size_params params)
-{
-    int n = option_find_int(options, "filters",1);
-    int groups = option_find_int_quiet(options, "groups", 1);
-    int size = option_find_int(options, "size",1);
-    int stride = -1;
-    //int stride = option_find_int(options, "stride",1);
-    int stride_x = option_find_int_quiet(options, "stride_x", -1);
-    int stride_y = option_find_int_quiet(options, "stride_y", -1);
-    if (stride_x < 1 || stride_y < 1) {
-        stride = option_find_int(options, "stride", 1);
-        if (stride_x < 1) stride_x = stride;
-        if (stride_y < 1) stride_y = stride;
-    }
-    else {
-        stride = option_find_int_quiet(options, "stride", 1);
-    }
-    int dilation = option_find_int_quiet(options, "dilation", 1);
-    int antialiasing = option_find_int_quiet(options, "antialiasing", 0);
-    if (size == 1) dilation = 1;
-    int pad = option_find_int_quiet(options, "pad",0);
-    int padding = option_find_int_quiet(options, "padding",0);
-    if(pad) padding = size/2;
-
-    char *activation_s = option_find_str(options, "activation", "logistic");
-    ACTIVATION activation = get_activation(activation_s);
-
-    int assisted_excitation = option_find_float_quiet(options, "assisted_excitation", 0);
-
-    int share_index = option_find_int_quiet(options, "share_index", -1000000000);
-    convolutional_layer *share_layer = NULL;
-    if(share_index >= 0) share_layer = &params.net.layers[share_index];
-    else if(share_index != -1000000000) share_layer = &params.net.layers[params.index + share_index];
-
-    int batch,h,w,c;
-    h = params.h;
-    w = params.w;
-    c = params.c;
-    batch=params.batch;
-    if(!(h && w && c)) error("Layer before convolutional layer must output image.", DARKNET_LOC);
-    int batch_normalize = option_find_int_quiet(options, "batch_normalize", 0);
-    int cbn = option_find_int_quiet(options, "cbn", 0);
-    if (cbn) batch_normalize = 2;
-    int binary = option_find_int_quiet(options, "binary", 0);
-    int xnor = option_find_int_quiet(options, "xnor", 0);
-    int use_bin_output = option_find_int_quiet(options, "bin_output", 0);
-    int sway = option_find_int_quiet(options, "sway", 0);
-    int rotate = option_find_int_quiet(options, "rotate", 0);
-    int stretch = option_find_int_quiet(options, "stretch", 0);
-    int stretch_sway = option_find_int_quiet(options, "stretch_sway", 0);
-    if ((sway + rotate + stretch + stretch_sway) > 1) {
-        printf(" Error: should be used only 1 param: sway=1, rotate=1 or stretch=1 in the [convolutional] layer \n");
-        exit(0);
-    }
-    int deform = sway || rotate || stretch || stretch_sway;
-    if (deform && size == 1) {
-        printf(" Error: params (sway=1, rotate=1 or stretch=1) should be used only with size >=3 in the [convolutional] layer \n");
-        exit(0);
-    }
-
-    convolutional_layer layer = make_convolutional_layer(batch,1,h,w,c,n,groups,size,stride_x,stride_y,dilation,padding,activation, batch_normalize, binary, xnor, params.net.adam, use_bin_output, params.index, antialiasing, share_layer, assisted_excitation, deform, params.train);
-    layer.flipped = option_find_int_quiet(options, "flipped", 0);
-    layer.dot = option_find_float_quiet(options, "dot", 0);
-    layer.sway = sway;
-    layer.rotate = rotate;
-    layer.stretch = stretch;
-    layer.stretch_sway = stretch_sway;
-    layer.angle = option_find_float_quiet(options, "angle", 15);
-    layer.grad_centr = option_find_int_quiet(options, "grad_centr", 0);
-    layer.reverse = option_find_float_quiet(options, "reverse", 0);
-    layer.coordconv = option_find_int_quiet(options, "coordconv", 0);
-
-    layer.stream = option_find_int_quiet(options, "stream", -1);
-    layer.wait_stream_id = option_find_int_quiet(options, "wait_stream", -1);
-
-    if(params.net.adam){
-        layer.B1 = params.net.B1;
-        layer.B2 = params.net.B2;
-        layer.eps = params.net.eps;
-    }
-
-    return layer;
-}
 
 layer parse_crnn(list *options, size_params params)
 {
@@ -1175,7 +1044,7 @@ void set_train_only_bn(network net)
 
 network parse_network_cfg(char *filename)
 {
-    return parse_network_cfg_custom(filename, 0, 0);
+    return parse_network_cfg_custom(filename, /* batch = */ 0, /* timesteps = */ 0);
 }
 
 

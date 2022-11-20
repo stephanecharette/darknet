@@ -26,7 +26,7 @@ namespace Darknet_ng
 			/// Constructor.  This automatically calls @ref load().
 			Network(const std::filesystem::path & cfg_filename);
 
-			/// Reset all of the network so the object can be re-used.  You'll need to call @ref load() after @ref clear().
+			/// Reset all of the network configuration so the object can be re-used.  You'll need to call @ref load() after @ref clear().
 			Network & clear();
 
 			/// @{ Determines if a neural network has been loaded.
@@ -39,12 +39,22 @@ namespace Darknet_ng
 			 */
 			Network & load(const std::filesystem::path & cfg_filename);
 
-			/// Parse the @p [net] section from the configuration.  This is automatically called by @ref load().
-			Network & parse_net(const Config & cfg);
+			/// @todo
+			Network & make_network(const Config & cfg);
 
-			/** All of the settings must be POD ("plain old data") since they're reset in bulk via the use of
-			 * @p std::memset().  Anything more complex than POD such as vectors and maps are defined below this
-			 * structure and need to be manually handled in @ref clear().
+			/// @todo
+			Network & parse_layers(const Config & cfg);
+
+			/// @{ Parse the given section from the configuration.  This is automatically called by @ref load().
+			Network & parse_net				(const Section & section);
+			Network & parse_convolutional	(const Section & section);
+			/// @}
+
+			/** All of the fields in this structure must be POD ("plain old data") since they're reset in bulk via the use of
+			 * @p std::memset() in @ref Network::clear().  Anything more complex than POD such as vectors and maps are defined
+			 * outside of this structure and need to be manually handled in @ref Network::clear().
+			 *
+			 * @since 2022-11-18
 			 */
 			struct Settings final
 			{
@@ -129,10 +139,11 @@ namespace Darknet_ng
 				int num_steps;						///< number of entries in @ref steps @todo this can be removed since "steps" is now much easier to manage
 				float gamma;						///< [net][gamma]
 
-				/* WARNING: Only POD (plain-old-data) can go in this structure!  No objects.
+				/* WARNING: Only POD (plain-old-data) can go in this structure!  No objects, meaning no std::strings.
 				 * Limit yourself to enums, bools, ints, and floats.  See comment above explaining why.
 				 */
 			};
+			/// Most (but not quite all) of the configuration for a neural network.  See the comments for @ref Network::Settings.
 			Settings settings;
 
 			VI steps;		///< [net][steps]
