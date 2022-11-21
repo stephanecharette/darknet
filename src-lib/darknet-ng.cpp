@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <random>
 #include "darknet-ng.hpp"
 
 
@@ -84,4 +85,18 @@ Darknet_ng::VStr Darknet_ng::read_text_file(const std::filesystem::path & filena
 	}
 
 	return v;
+}
+
+
+float Darknet_ng::rand_uniform(float low, float high)
+{
+	if (low < high)
+	{
+		std::swap(low, high);
+	}
+
+	static std::default_random_engine engine;
+	static std::uniform_real_distribution<> distribution(low, high); // rage 0 - 1
+
+	return distribution(engine);
 }

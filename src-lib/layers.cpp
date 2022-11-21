@@ -110,3 +110,92 @@ std::string Darknet_ng::to_string(const Darknet_ng::ELayerType & layer_type)
 
 	throw std::invalid_argument("unknown layer type: " + std::to_string(static_cast<int>(layer_type)));
 }
+
+
+size_t Darknet_ng::get_workspace_size32(const Darknet_ng::Layer & layer)
+{
+	#ifdef CUDNN
+	if(gpu_index >= 0)
+	{
+		size_t most = 0;
+		size_t s = 0;
+		CHECK_CUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn_handle(),
+															l.srcTensorDesc,
+													  l.weightDesc,
+													  l.convDesc,
+													  l.dstTensorDesc,
+													  l.fw_algo,
+													  &s));
+		if (s > most) most = s;
+		CHECK_CUDNN(cudnnGetConvolutionBackwardFilterWorkspaceSize(cudnn_handle(),
+																   l.srcTensorDesc,
+															 l.ddstTensorDesc,
+															 l.convDesc,
+															 l.dweightDesc,
+															 l.bf_algo,
+															 &s));
+		if (s > most && l.train) most = s;
+		CHECK_CUDNN(cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn_handle(),
+																 l.weightDesc,
+														   l.ddstTensorDesc,
+														   l.convDesc,
+														   l.dsrcTensorDesc,
+														   l.bd_algo,
+														   &s));
+		if (s > most && l.train) most = s;
+		return most;
+	}
+	#endif
+	if (layer.xnor)
+	{
+		size_t re_packed_input_size = layer.c * layer.w * layer.h * sizeof(float);
+		size_t workspace_size = (size_t)layer.bit_align * layer.size * layer.size * layer.c * sizeof(float);
+		if (workspace_size < re_packed_input_size)
+		{
+			workspace_size = re_packed_input_size;
+		}
+
+		return workspace_size;
+	}
+
+	return (size_t)layer.out_h * layer.out_w * layer.size * layer.size * (layer.c / layer.groups) * sizeof(float);
+}
+
+
+size_t Darknet_ng::get_workspace_size16(const Darknet_ng::Layer & layer)
+{
+	#if defined(CUDNN) && defined(CUDNN_HALF)
+	if (gpu_index >= 0)
+	{
+		size_t most = 0;
+		size_t s = 0;
+		CHECK_CUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn_handle(),
+															l.srcTensorDesc16,
+													  l.weightDesc16,
+													  l.convDesc,
+													  l.dstTensorDesc16,
+													  l.fw_algo16,
+													  &s));
+		if (s > most) most = s;
+		CHECK_CUDNN(cudnnGetConvolutionBackwardFilterWorkspaceSize(cudnn_handle(),
+																   l.srcTensorDesc16,
+															 l.ddstTensorDesc16,
+															 l.convDesc,
+															 l.dweightDesc16,
+															 l.bf_algo16,
+															 &s));
+		if (s > most && l.train) most = s;
+		CHECK_CUDNN(cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn_handle(),
+																 l.weightDesc16,
+														   l.ddstTensorDesc16,
+														   l.convDesc,
+														   l.dsrcTensorDesc16,
+														   l.bd_algo16,
+														   &s));
+		if (s > most && l.train) most = s;
+		return most;
+	}
+	#endif
+
+	return 0;
+}

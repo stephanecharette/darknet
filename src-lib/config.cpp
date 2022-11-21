@@ -80,7 +80,7 @@ int Darknet_ng::Section::i(const std::string & key) const
 	}
 	catch (std::exception & e)
 	{
-		throw std::runtime_error(key_name + " in section [" + name + "] cannot be converted to an integer (" + val + ")");
+		throw std::logic_error(key_name + " in section [" + name + "] cannot be converted to an integer (" + val + ")");
 	}
 
 	return result;
@@ -116,7 +116,7 @@ float Darknet_ng::Section::f(const std::string & key) const
 	}
 	catch (std::exception & e)
 	{
-		throw std::runtime_error(key_name + " in section [" + name + "] cannot be converted to a float (" + val + ")");
+		throw std::logic_error(key_name + " in section [" + name + "] cannot be converted to a float (" + val + ")");
 	}
 
 	return result;
@@ -160,7 +160,7 @@ bool Darknet_ng::Section::b(const std::string & key) const
 		return true;
 	}
 
-	throw std::runtime_error(key_name + " in section [" + name + "] cannot be converted to a bool (" + val + ")");
+	throw std::logic_error(key_name + " in section [" + name + "] cannot be converted to a bool (" + val + ")");
 }
 
 
@@ -322,7 +322,7 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 		const bool found = std::regex_search(line, m, rx);
 		if (not found)
 		{
-			throw std::runtime_error("failed to parse line #" + std::to_string(line_number) + " in " + cfg_filename.string());
+			throw std::logic_error("failed to parse line #" + std::to_string(line_number) + " in " + cfg_filename.string());
 		}
 
 		const std::string section_name	= lowercase(m.str(1));
@@ -346,14 +346,14 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 
 		if (sections.empty())
 		{
-			throw std::runtime_error("config cannot have values prior to \"[...]\" section name at line " + std::to_string(line_number));
+			throw std::logic_error("config cannot have values prior to \"[...]\" section name at line " + std::to_string(line_number));
 		}
 
 		// add this key-pair to the *most recent* section that we created
 		Section & section = *sections.rbegin();
 		if (section.kv_pairs.count(key) > 0)
 		{
-			throw std::runtime_error("[" + section.name + "] already contains " + key + "=" + section.kv_pairs[key] + ", but duplicate key found on line #" + std::to_string(line_number));
+			throw std::logic_error("[" + section.name + "] already contains " + key + "=" + section.kv_pairs[key] + ", but duplicate key found on line #" + std::to_string(line_number));
 		}
 		section.kv_pairs[key] = val;
 	}
@@ -365,7 +365,7 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 
 	if (layer_type_from_string(sections[0].name) != ELayerType::kNetwork)
 	{
-		throw std::runtime_error("configuration file must start with [net] or [network] section: " + cfg_filename.string() + "\"");
+		throw std::logic_error("configuration file must start with [net] or [network] section: " + cfg_filename.string() + "\"");
 	}
 
 	return *this;

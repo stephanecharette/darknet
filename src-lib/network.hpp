@@ -47,7 +47,7 @@ namespace Darknet_ng
 
 			/// @{ Parse the given section from the configuration.  This is automatically called by @ref load().
 			Network & parse_net				(const Section & section);
-			Network & parse_convolutional	(const Section & section);
+			Network & parse_convolutional	(const Section & section, const size_t layer_index);
 			/// @}
 
 			/** All of the fields in this structure must be POD ("plain old data") since they're reset in bulk via the use of
@@ -139,6 +139,8 @@ namespace Darknet_ng
 				int num_steps;						///< number of entries in @ref steps @todo this can be removed since "steps" is now much easier to manage
 				float gamma;						///< [net][gamma]
 
+				bool train; // was int, converting to a bool
+
 				/* WARNING: Only POD (plain-old-data) can go in this structure!  No objects, meaning no std::strings.
 				 * Limit yourself to enums, bools, ints, and floats.  See comment above explaining why.
 				 */
@@ -185,7 +187,6 @@ namespace Darknet_ng
 			float *truth;
 			float *delta;
 			float *workspace;
-			int train;
 			int index;
 			float *cost;
 			float clip;
@@ -218,4 +219,8 @@ namespace Darknet_ng
 			//#endif  // GPU
 #endif
 	};
+
+	int convolutional_out_width(const Layer & layer);
+	int convolutional_out_height(const Layer & layer);
+	size_t get_convolutional_workspace_size(const Layer & layer);
 }

@@ -2,9 +2,10 @@
 // MIT license applies.  See "license.txt" for details.
 
 #include "darknet-ng.hpp"
+#include <cmath>
 
 
-Darknet_ng::Network & Darknet_ng::Network::parse_convolutional(const Darknet_ng::Section & section)
+Darknet_ng::Network & Darknet_ng::Network::parse_convolutional(const Darknet_ng::Section & section, const size_t layer_index)
 {
 	// was:  convolutional_layer parse_convolutional(list *options, size_params params);
 
@@ -41,24 +42,28 @@ Darknet_ng::Network & Darknet_ng::Network::parse_convolutional(const Darknet_ng:
 	const int deform = sway + rotate + stretch + stretch_sway;
 	if (deform < 0 or deform > 1)
 	{
-		throw std::runtime_error("convolutional layer at line #" + std::to_string(section.line_number) + " must only enable a maximum of 1 of sway, rotate, stretch, or stretch_sway");
+		throw std::invalid_argument("convolutional layer at line #" + std::to_string(section.line_number) + " must only enable a maximum of 1 of sway, rotate, stretch, or stretch_sway");
 	}
 	if (deform == 1 and size == 1)
 	{
-		throw std::runtime_error("convolutional layer at line #" + std::to_string(section.line_number) + " must have a larger size to use sway, rotate, stretch, or stretch_sway");
+		throw std::invalid_argument("convolutional layer at line #" + std::to_string(section.line_number) + " must have a larger size to use sway, rotate, stretch, or stretch_sway");
 	}
 
-	#if 0 /// @todo
 	const int share_index = section.i("share_index", -1000000000);
-	convolutional_layer *share_layer = NULL;
-	if(share_index >= 0) share_layer = &params.net.layers[share_index];
-	else if(share_index != -1000000000) share_layer = &params.net.layers[params.index + share_index];
-	#endif
+	Layer * share_layer = nullptr;
+	if (share_index >= 0)
+	{
+		share_layer = &layers.at(share_index);
+	}
+	else if (share_index != -1000000000)
+	{
+		share_layer = &layers.at(layer_index + share_index);
+	}
 
-#if 0
-	//	convolutional_layer layer =
-	Layer layer =
+	Layer & layer = layers.at(layer_index);
+
 	make_convolutional_layer(
+		layer,
 		settings.batch,
 		1,
 		settings.h,
@@ -77,15 +82,12 @@ Darknet_ng::Network & Darknet_ng::Network::parse_convolutional(const Darknet_ng:
 		xnor,
 		settings.adam,
 		use_bin_output,
-		params.index,
+		layer_index,
 		antialiasing,
 		share_layer,
 		assisted_excitation,
 		deform,
 		settings.train);
-#else
-	Layer layer;
-#endif
 
 	layer.sway				= sway;
 	layer.rotate			= rotate;
@@ -113,350 +115,485 @@ Darknet_ng::Network & Darknet_ng::Network::parse_convolutional(const Darknet_ng:
 }
 
 
-// convolutional_layer make_convolutional_layer(int batch, int steps, int h, int w, int c, int n, int groups, int size, int stride_x, int stride_y, int dilation, int padding, ACTIVATION activation, int batch_normalize, int binary, int xnor, int adam, int use_bin_output, int index, int antialiasing, convolutional_layer *share_layer, int assisted_excitation, int deform, int train);
-Darknet_ng::Layer make_convolutional_layer(int batch, int steps, int h, int w, int c, int n, int groups, int size, int stride_x, int stride_y, int dilation, int padding, ACTIVATION activation, int batch_normalize, int binary, int xnor, int adam, int use_bin_output, int index, int antialiasing, convolutional_layer *share_layer, int assisted_excitation, int deform, int train)
+// was: convolutional_layer make_convolutional_layer(int batch, int steps, int h, int w, int c, int n, int groups, int size, int stride_x, int stride_y, int dilation, int padding, ACTIVATION activation, int batch_normalize, int binary, int xnor, int adam, int use_bin_output, int index, int antialiasing, convolutional_layer *share_layer, int assisted_excitation, int deform, int train);
+Darknet_ng::Layer Darknet_ng::make_convolutional_layer(Darknet_ng::Layer & layer, int batch, int steps, int h, int w, int c, int n, int groups, int size, int stride_x, int stride_y, int dilation, int padding, Darknet_ng::EActivation activation, int batch_normalize, int binary, int xnor, int adam, int use_bin_output, int index, int antialiasing, Layer *share_layer, int assisted_excitation, int deform, int train)
 {
-	int total_batch = batch*steps;
+	int total_batch = batch * steps;
 	int i;
-	convolutional_layer l = { (LAYER_TYPE)0 };
-	l.type = CONVOLUTIONAL;
-	l.train = train;
+//	Layer layer = {0};// = { (LAYER_TYPE)0 };
+//	layer = {0};
+	layer.type = ELayerType::kConvolutional;
+	layer.train = train;
 
 	if (xnor) groups = 1;   // disable groups for XNOR-net
 	if (groups < 1) groups = 1;
 
 	const int blur_stride_x = stride_x;
 	const int blur_stride_y = stride_y;
-	l.antialiasing = antialiasing;
-	if (antialiasing) {
-		stride_x = stride_y = l.stride = l.stride_x = l.stride_y = 1; // use stride=1 in host-layer
+	layer.antialiasing = antialiasing;
+	if (antialiasing)
+	{
+		stride_x = stride_y = layer.stride = layer.stride_x = layer.stride_y = 1; // use stride=1 in host-layer
 	}
 
-	l.wait_stream_id = -1;
-	l.deform = deform;
-	l.assisted_excitation = assisted_excitation;
-	l.share_layer = share_layer;
-	l.index = index;
-	l.h = h;
-	l.w = w;
-	l.c = c;
-	l.groups = groups;
-	l.n = n;
-	l.binary = binary;
-	l.xnor = xnor;
-	l.use_bin_output = use_bin_output;
-	l.batch = batch;
-	l.steps = steps;
-	l.stride = stride_x;
-	l.stride_x = stride_x;
-	l.stride_y = stride_y;
-	l.dilation = dilation;
-	l.size = size;
-	l.pad = padding;
-	l.batch_normalize = batch_normalize;
-	l.learning_rate_scale = 1;
-	l.nweights = (c / groups) * n * size * size;
+	layer.wait_stream_id = -1;
+	layer.deform = deform;
+	layer.assisted_excitation = assisted_excitation;
+	layer.share_layer = share_layer;
+	layer.index = index;
+	layer.h = h;
+	layer.w = w;
+	layer.c = c;
+	layer.groups = groups;
+	layer.n = n;
+	layer.binary = binary;
+	layer.xnor = xnor;
+	layer.use_bin_output = use_bin_output;
+	layer.batch = batch;
+	layer.steps = steps;
+	layer.stride = stride_x;
+	layer.stride_x = stride_x;
+	layer.stride_y = stride_y;
+	layer.dilation = dilation;
+	layer.size = size;
+	layer.pad = padding;
+	layer.batch_normalize = batch_normalize;
+	layer.learning_rate_scale = 1;
+	layer.nweights = (c / groups) * n * size * size;
 
-	if (l.share_layer) {
-		if (l.size != l.share_layer->size || l.nweights != l.share_layer->nweights || l.c != l.share_layer->c || l.n != l.share_layer->n) {
+	if (layer.share_layer)
+	{
+		if (layer.size != layer.share_layer->size or layer.nweights != layer.share_layer->nweights or layer.c != layer.share_layer->c or layer.n != layer.share_layer->n)
+		{
 			printf(" Layer size, nweights, channels or filters don't match for the share_layer");
-			getchar();
+			getchar(); ///< @todo
 		}
 
-		l.weights = l.share_layer->weights;
-		l.weight_updates = l.share_layer->weight_updates;
+		layer.weights = layer.share_layer->weights;
+		layer.weight_updates = layer.share_layer->weight_updates;
 
-		l.biases = l.share_layer->biases;
-		l.bias_updates = l.share_layer->bias_updates;
+		layer.biases = layer.share_layer->biases;
+		layer.bias_updates = layer.share_layer->bias_updates;
 	}
-	else {
-		l.weights = (float*)xcalloc(l.nweights, sizeof(float));
-		l.biases = (float*)xcalloc(n, sizeof(float));
+	else
+	{
+		layer.weights = (float*)xcalloc(layer.nweights, sizeof(float));
+		layer.biases = (float*)xcalloc(n, sizeof(float));
 
-		if (train) {
-			l.weight_updates = (float*)xcalloc(l.nweights, sizeof(float));
-			l.bias_updates = (float*)xcalloc(n, sizeof(float));
+		if (train)
+		{
+			layer.weight_updates = (float*)xcalloc(layer.nweights, sizeof(float));
+			layer.bias_updates = (float*)xcalloc(n, sizeof(float));
 
-			l.weights_ema = (float*)xcalloc(l.nweights, sizeof(float));
-			l.biases_ema = (float*)xcalloc(n, sizeof(float));
+			layer.weights_ema = (float*)xcalloc(layer.nweights, sizeof(float));
+			layer.biases_ema = (float*)xcalloc(n, sizeof(float));
 		}
 	}
 
 	// float scale = 1./sqrt(size*size*c);
-	float scale = sqrt(2./(size*size*c/groups));
-	if (l.activation == NORM_CHAN || l.activation == NORM_CHAN_SOFTMAX || l.activation == NORM_CHAN_SOFTMAX_MAXVAL) {
-		for (i = 0; i < l.nweights; ++i) l.weights[i] = 1;   // rand_normal();
+	float scale = std::sqrt(2.0f / (size * size * c / groups));
+	if (layer.activation == EActivation::kNormCHAN			or
+		layer.activation == EActivation::kNormCHANSoftmax	or
+		layer.activation == EActivation::kNormCHANSoftmaxMaxVal)
+	{
+		for (i = 0; i < layer.nweights; ++i)
+		{
+			layer.weights[i] = 1;   // rand_normal();
+		}
 	}
-	else {
-		for (i = 0; i < l.nweights; ++i) l.weights[i] = scale*rand_uniform(-1, 1);   // rand_normal();
+	else
+	{
+		for (i = 0; i < layer.nweights; ++i)
+		{
+			layer.weights[i] = scale * rand_uniform(-1, 1);   // rand_normal();
+		}
 	}
-	int out_h = convolutional_out_height(l);
-	int out_w = convolutional_out_width(l);
-	l.out_h = out_h;
-	l.out_w = out_w;
-	l.out_c = n;
-	l.outputs = l.out_h * l.out_w * l.out_c;
-	l.inputs = l.w * l.h * l.c;
-	l.activation = activation;
 
-	l.output = (float*)xcalloc(total_batch*l.outputs, sizeof(float));
+	const int out_h		= convolutional_out_height(layer);
+	const int out_w		= convolutional_out_width(layer);
+
+	layer.out_h			= out_h;
+	layer.out_w			= out_w;
+	layer.out_c			= n;
+	layer.outputs		= layer.out_h * layer.out_w * layer.out_c;
+	layer.inputs		= layer.w * layer.h * layer.c;
+	layer.activation	= activation;
+
+	layer.output = (float*)xcalloc(total_batch*layer.outputs, sizeof(float));
 	#ifndef GPU
-	if (train) l.delta = (float*)xcalloc(total_batch*l.outputs, sizeof(float));
+	if (train)
+	{
+		layer.delta = (float*)xcalloc(total_batch * layer.outputs, sizeof(float));
+	}
 	#endif  // not GPU
 
-	l.forward = forward_convolutional_layer;
-	l.backward = backward_convolutional_layer;
-	l.update = update_convolutional_layer;
-	if(binary){
-		l.binary_weights = (float*)xcalloc(l.nweights, sizeof(float));
-		l.cweights = (char*)xcalloc(l.nweights, sizeof(char));
-		l.scales = (float*)xcalloc(n, sizeof(float));
+#if STEPHANE /// @todo
+	layer.forward	= forward_convolutional_layer;
+	layer.backward	= backward_convolutional_layer;
+	layer.update	= update_convolutional_layer;
+#endif
+
+	if (binary)
+	{
+		layer.binary_weights = (float*)xcalloc(layer.nweights, sizeof(float));
+		layer.cweights = (char*)xcalloc(layer.nweights, sizeof(char));
+		layer.scales = (float*)xcalloc(n, sizeof(float));
 	}
-	if(xnor){
-		l.binary_weights = (float*)xcalloc(l.nweights, sizeof(float));
-		l.binary_input = (float*)xcalloc(l.inputs * l.batch, sizeof(float));
+
+	if (xnor)
+	{
+		layer.binary_weights = (float*)xcalloc(layer.nweights, sizeof(float));
+		layer.binary_input = (float*)xcalloc(layer.inputs * layer.batch, sizeof(float));
 
 		int align = 32;// 8;
-		int src_align = l.out_h*l.out_w;
-		l.bit_align = src_align + (align - src_align % align);
+		int src_align = layer.out_h * layer.out_w;
+		layer.bit_align = src_align + (align - src_align % align);
 
-		l.mean_arr = (float*)xcalloc(l.n, sizeof(float));
+		layer.mean_arr = (float*)xcalloc(layer.n, sizeof(float));
 
-		const size_t new_c = l.c / 32;
-		size_t in_re_packed_input_size = new_c * l.w * l.h + 1;
-		l.bin_re_packed_input = (uint32_t*)xcalloc(in_re_packed_input_size, sizeof(uint32_t));
+		const size_t new_c = layer.c / 32;
+		size_t in_re_packed_input_size = new_c * layer.w * layer.h + 1;
+		layer.bin_re_packed_input = (uint32_t*)xcalloc(in_re_packed_input_size, sizeof(uint32_t));
 
-		l.lda_align = 256;  // AVX2
-		int k = l.size*l.size*l.c;
-		size_t k_aligned = k + (l.lda_align - k%l.lda_align);
-		size_t t_bit_input_size = k_aligned * l.bit_align / 8;
-		l.t_bit_input = (char*)xcalloc(t_bit_input_size, sizeof(char));
+		layer.lda_align = 256;  // AVX2
+		int k = layer.size * layer.size * layer.c;
+		size_t k_aligned = k + (layer.lda_align - k % layer.lda_align);
+		size_t t_bit_input_size = k_aligned * layer.bit_align / 8;
+		layer.t_bit_input = (char*)xcalloc(t_bit_input_size, sizeof(char));
 	}
 
-	if(batch_normalize){
-		if (l.share_layer) {
-			l.scales = l.share_layer->scales;
-			l.scale_updates = l.share_layer->scale_updates;
-			l.mean = l.share_layer->mean;
-			l.variance = l.share_layer->variance;
-			l.mean_delta = l.share_layer->mean_delta;
-			l.variance_delta = l.share_layer->variance_delta;
-			l.rolling_mean = l.share_layer->rolling_mean;
-			l.rolling_variance = l.share_layer->rolling_variance;
+	if (batch_normalize)
+	{
+		if (layer.share_layer)
+		{
+			layer.scales			= layer.share_layer->scales;
+			layer.scale_updates		= layer.share_layer->scale_updates;
+			layer.mean				= layer.share_layer->mean;
+			layer.variance			= layer.share_layer->variance;
+			layer.mean_delta		= layer.share_layer->mean_delta;
+			layer.variance_delta	= layer.share_layer->variance_delta;
+			layer.rolling_mean		= layer.share_layer->rolling_mean;
+			layer.rolling_variance	= layer.share_layer->rolling_variance;
 		}
-		else {
-			l.scales = (float*)xcalloc(n, sizeof(float));
-			for (i = 0; i < n; ++i) {
-				l.scales[i] = 1;
+		else
+		{
+			layer.scales = (float*)xcalloc(n, sizeof(float));
+			for (i = 0; i < n; ++i)
+			{
+				layer.scales[i] = 1;
 			}
-			if (train) {
-				l.scales_ema = (float*)xcalloc(n, sizeof(float));
-				l.scale_updates = (float*)xcalloc(n, sizeof(float));
+			if (train)
+			{
+				layer.scales_ema		= (float*)xcalloc(n, sizeof(float));
+				layer.scale_updates		= (float*)xcalloc(n, sizeof(float));
 
-				l.mean = (float*)xcalloc(n, sizeof(float));
-				l.variance = (float*)xcalloc(n, sizeof(float));
+				layer.mean				= (float*)xcalloc(n, sizeof(float));
+				layer.variance			= (float*)xcalloc(n, sizeof(float));
 
-				l.mean_delta = (float*)xcalloc(n, sizeof(float));
-				l.variance_delta = (float*)xcalloc(n, sizeof(float));
+				layer.mean_delta		= (float*)xcalloc(n, sizeof(float));
+				layer.variance_delta	= (float*)xcalloc(n, sizeof(float));
 			}
-			l.rolling_mean = (float*)xcalloc(n, sizeof(float));
-			l.rolling_variance = (float*)xcalloc(n, sizeof(float));
+
+			layer.rolling_mean		= (float*)xcalloc(n, sizeof(float));
+			layer.rolling_variance	= (float*)xcalloc(n, sizeof(float));
 		}
 
 		#ifndef GPU
-		if (train) {
-			l.x = (float*)xcalloc(total_batch * l.outputs, sizeof(float));
-			l.x_norm = (float*)xcalloc(total_batch * l.outputs, sizeof(float));
+		if (train)
+		{
+			layer.x = (float*)xcalloc(total_batch * layer.outputs, sizeof(float));
+			layer.x_norm = (float*)xcalloc(total_batch * layer.outputs, sizeof(float));
 		}
 		#endif  // not GPU
 	}
 
 	#ifndef GPU
-	if (l.activation == SWISH || l.activation == MISH || l.activation == HARD_MISH) l.activation_input = (float*)calloc(total_batch*l.outputs, sizeof(float));
+	if (layer.activation == EActivation::kSWISH	or
+		layer.activation == EActivation::kMISH	or
+		layer.activation == EActivation::kHardMISH)
+	{
+		layer.activation_input = (float*)calloc(total_batch * layer.outputs, sizeof(float));
+	}
 	#endif  // not GPU
 
-	if(adam){
-		l.adam = 1;
-		l.m = (float*)xcalloc(l.nweights, sizeof(float));
-		l.v = (float*)xcalloc(l.nweights, sizeof(float));
-		l.bias_m = (float*)xcalloc(n, sizeof(float));
-		l.scale_m = (float*)xcalloc(n, sizeof(float));
-		l.bias_v = (float*)xcalloc(n, sizeof(float));
-		l.scale_v = (float*)xcalloc(n, sizeof(float));
+	if (adam)
+	{
+		layer.adam = 1;
+		layer.m = (float*)xcalloc(layer.nweights, sizeof(float));
+		layer.v = (float*)xcalloc(layer.nweights, sizeof(float));
+		layer.bias_m = (float*)xcalloc(n, sizeof(float));
+		layer.scale_m = (float*)xcalloc(n, sizeof(float));
+		layer.bias_v = (float*)xcalloc(n, sizeof(float));
+		layer.scale_v = (float*)xcalloc(n, sizeof(float));
 	}
 
 	#ifdef GPU
 
+	layer.forward_gpu = forward_convolutional_layer_gpu;
+	layer.backward_gpu = backward_convolutional_layer_gpu;
+	layer.update_gpu = update_convolutional_layer_gpu;
 
-	l.forward_gpu = forward_convolutional_layer_gpu;
-	l.backward_gpu = backward_convolutional_layer_gpu;
-	l.update_gpu = update_convolutional_layer_gpu;
-
-	if(gpu_index >= 0){
-
-		if (train && (l.activation == SWISH || l.activation == MISH || l.activation == HARD_MISH)) {
-			l.activation_input_gpu = cuda_make_array(l.activation_input, total_batch*l.outputs);
+	if(gpu_index >= 0)
+	{
+		if (train && (layer.activation == SWISH or layer.activation == MISH or layer.activation == HARD_MISH))
+		{
+			layer.activation_input_gpu = cuda_make_array(layer.activation_input, total_batch * layer.outputs);
 		}
 
-		if (l.deform) l.weight_deform_gpu = cuda_make_array(NULL, l.nweights);
-
-		if (adam) {
-			l.m_gpu = cuda_make_array(l.m, l.nweights);
-			l.v_gpu = cuda_make_array(l.v, l.nweights);
-			l.bias_m_gpu = cuda_make_array(l.bias_m, n);
-			l.bias_v_gpu = cuda_make_array(l.bias_v, n);
-			l.scale_m_gpu = cuda_make_array(l.scale_m, n);
-			l.scale_v_gpu = cuda_make_array(l.scale_v, n);
-		}
-		if (l.share_layer) {
-			l.weights_gpu = l.share_layer->weights_gpu;
-			l.weight_updates_gpu = l.share_layer->weight_updates_gpu;
-			l.weights_gpu16 = l.share_layer->weights_gpu16;
-			l.weight_updates_gpu16 = l.share_layer->weight_updates_gpu16;
-			l.biases_gpu = l.share_layer->biases_gpu;
-			l.bias_updates_gpu = l.share_layer->bias_updates_gpu;
-		}
-		else {
-			l.weights_gpu = cuda_make_array(l.weights, l.nweights);
-			if (train) l.weight_updates_gpu = cuda_make_array(l.weight_updates, l.nweights);
-			#ifdef CUDNN_HALF
-			l.weights_gpu16 = cuda_make_array(NULL, l.nweights / 2 + 1);
-			if (train) l.weight_updates_gpu16 = cuda_make_array(NULL, l.nweights / 2 + 1);
-			#endif  // CUDNN_HALF
-			l.biases_gpu = cuda_make_array(l.biases, n);
-			if (train) l.bias_updates_gpu = cuda_make_array(l.bias_updates, n);
+		if (layer.deform)
+		{
+			layer.weight_deform_gpu = cuda_make_array(NULL, layer.nweights);
 		}
 
-		l.output_gpu = cuda_make_array(l.output, total_batch*out_h*out_w*n);
-		if (train) l.delta_gpu = cuda_make_array(l.delta, total_batch*out_h*out_w*n);
-
-		if(binary){
-			l.binary_weights_gpu = cuda_make_array(l.weights, l.nweights);
+		if (adam)
+		{
+			layer.m_gpu = cuda_make_array(layer.m, layer.nweights);
+			layer.v_gpu = cuda_make_array(layer.v, layer.nweights);
+			layer.bias_m_gpu = cuda_make_array(layer.bias_m, n);
+			layer.bias_v_gpu = cuda_make_array(layer.bias_v, n);
+			layer.scale_m_gpu = cuda_make_array(layer.scale_m, n);
+			layer.scale_v_gpu = cuda_make_array(layer.scale_v, n);
 		}
-		if(xnor){
-			l.binary_weights_gpu = cuda_make_array(l.weights, l.nweights);
-			l.mean_arr_gpu = cuda_make_array(0, l.n);
-			l.binary_input_gpu = cuda_make_array(0, l.inputs*l.batch);
+		if (l.share_layer)
+		{
+			layer.weights_gpu = layer.share_layer->weights_gpu;
+			layer.weight_updates_gpu = layer.share_layer->weight_updates_gpu;
+			layer.weights_gpu16 = layer.share_layer->weights_gpu16;
+			layer.weight_updates_gpu16 = layer.share_layer->weight_updates_gpu16;
+			layer.biases_gpu = layer.share_layer->biases_gpu;
+			layer.bias_updates_gpu = layer.share_layer->bias_updates_gpu;
 		}
-
-		if(batch_normalize){
-			if (l.share_layer) {
-				l.scales_gpu = l.share_layer->scales_gpu;
-				l.scale_updates_gpu = l.share_layer->scale_updates_gpu;
-				l.mean_gpu = l.share_layer->mean_gpu;
-				l.variance_gpu = l.share_layer->variance_gpu;
-				l.rolling_mean_gpu = l.share_layer->rolling_mean_gpu;
-				l.rolling_variance_gpu = l.share_layer->rolling_variance_gpu;
-				l.mean_delta_gpu = l.share_layer->mean_delta_gpu;
-				l.variance_delta_gpu = l.share_layer->variance_delta_gpu;
+		else
+		{
+			layer.weights_gpu = cuda_make_array(layer.weights, layer.nweights);
+			if (train)
+			{
+				layer.weight_updates_gpu = cuda_make_array(layer.weight_updates, layer.nweights);
 			}
-			else {
-				l.scales_gpu = cuda_make_array(l.scales, n);
+			#ifdef CUDNN_HALF
+			layer.weights_gpu16 = cuda_make_array(NULL, layer.nweights / 2 + 1);
+			if (train)
+			{
+				layer.weight_updates_gpu16 = cuda_make_array(NULL, layer.nweights / 2 + 1);
+			}
+			#endif  // CUDNN_HALF
+			layer.biases_gpu = cuda_make_array(layer.biases, n);
+			if (train)
+			{
+				layer.bias_updates_gpu = cuda_make_array(layer.bias_updates, n);
+			}
+		}
 
-				if (train) {
-					l.scale_updates_gpu = cuda_make_array(l.scale_updates, n);
+		layer.output_gpu = cuda_make_array(layer.output, total_batch * out_h * out_w * n);
+		if (train)
+		{
+			layer.delta_gpu = cuda_make_array(layer.delta, total_batch * out_h * out_w * n);
+		}
 
-					l.mean_gpu = cuda_make_array(l.mean, n);
-					l.variance_gpu = cuda_make_array(l.variance, n);
-					l.m_cbn_avg_gpu = cuda_make_array(l.mean, n);
-					l.v_cbn_avg_gpu = cuda_make_array(l.variance, n);
+		if (binary)
+		{
+			layer.binary_weights_gpu = cuda_make_array(layer.weights, layer.nweights);
+		}
+		if (xnor)
+		{
+			layer.binary_weights_gpu = cuda_make_array(layer.weights, layer.nweights);
+			layer.mean_arr_gpu = cuda_make_array(0, layer.n);
+			layer.binary_input_gpu = cuda_make_array(0, layer.inputs * layer.batch);
+		}
+
+		if (batch_normalize)
+		{
+			if (layer.share_layer)
+			{
+				layer.scales_gpu = layer.share_layer->scales_gpu;
+				layer.scale_updates_gpu = layer.share_layer->scale_updates_gpu;
+				layer.mean_gpu = layer.share_layer->mean_gpu;
+				layer.variance_gpu = layer.share_layer->variance_gpu;
+				layer.rolling_mean_gpu = layer.share_layer->rolling_mean_gpu;
+				layer.rolling_variance_gpu = layer.share_layer->rolling_variance_gpu;
+				layer.mean_delta_gpu = layer.share_layer->mean_delta_gpu;
+				layer.variance_delta_gpu = layer.share_layer->variance_delta_gpu;
+			}
+			else
+			{
+				layer.scales_gpu = cuda_make_array(layer.scales, n);
+
+				if (train)
+				{
+					layer.scale_updates_gpu = cuda_make_array(layer.scale_updates, n);
+
+					layer.mean_gpu = cuda_make_array(layer.mean, n);
+					layer.variance_gpu = cuda_make_array(layer.variance, n);
+					layer.m_cbn_avg_gpu = cuda_make_array(layer.mean, n);
+					layer.v_cbn_avg_gpu = cuda_make_array(layer.variance, n);
 					#ifndef CUDNN
-					l.mean_delta_gpu = cuda_make_array(l.mean, n);
-					l.variance_delta_gpu = cuda_make_array(l.variance, n);
+					layer.mean_delta_gpu = cuda_make_array(layer.mean, n);
+					layer.variance_delta_gpu = cuda_make_array(layer.variance, n);
 					#endif  // CUDNN
 				}
 
-				l.rolling_mean_gpu = cuda_make_array(l.mean, n);
-				l.rolling_variance_gpu = cuda_make_array(l.variance, n);
+				layer.rolling_mean_gpu = cuda_make_array(layer.mean, n);
+				layer.rolling_variance_gpu = cuda_make_array(layer.variance, n);
 			}
 
-			if (train) {
-				l.x_gpu = cuda_make_array(l.output, total_batch*out_h*out_w*n);
+			if (train)
+			{
+				layer.x_gpu = cuda_make_array(l.output, total_batch * out_h * out_w  *n);
 				#ifndef CUDNN
-				l.x_norm_gpu = cuda_make_array(l.output, total_batch*out_h*out_w*n);
+				layer.x_norm_gpu = cuda_make_array(layer.output, total_batch * out_h * out_w * n);
 				#endif  // CUDNN
 			}
 		}
 
-		if (l.assisted_excitation)
+		if (layer.assisted_excitation)
 		{
-			const int size = l.out_w * l.out_h * l.batch;
-			l.gt_gpu = cuda_make_array(NULL, size);
-			l.a_avg_gpu = cuda_make_array(NULL, size);
+			const int size = layer.out_w * layer.out_h * layer.batch;
+			layer.gt_gpu = cuda_make_array(NULL, size);
+			layer.a_avg_gpu = cuda_make_array(NULL, size);
 		}
 		#ifdef CUDNN
-		create_convolutional_cudnn_tensors(&l);
-		cudnn_convolutional_setup(&l, cudnn_fastest, 0);
+		create_convolutional_cudnn_tensors(&layer);
+		cudnn_convolutional_setup(&layer, cudnn_fastest, 0);
 		#endif  // CUDNN
 	}
 	#endif  // GPU
-	l.workspace_size = get_convolutional_workspace_size(l);
+	layer.workspace_size = get_convolutional_workspace_size(layer);
 
 	//fprintf(stderr, "conv  %5d %2d x%2d /%2d  %4d x%4d x%4d   ->  %4d x%4d x%4d\n", n, size, size, stride, w, h, c, l.out_w, l.out_h, l.out_c);
-	l.bflops = (2.0 * l.nweights * l.out_h*l.out_w) / 1000000000.;
-	if (l.xnor) l.bflops = l.bflops / 32;
-	if (l.xnor && l.use_bin_output) fprintf(stderr, "convXB");
-	else if (l.xnor) fprintf(stderr, "convX ");
-	else if (l.share_layer) fprintf(stderr, "convS ");
-	else if (l.assisted_excitation) fprintf(stderr, "convAE");
-	else fprintf(stderr, "conv  ");
-
-	if (groups > 1) fprintf(stderr, "%5d/%4d ", n, groups);
-	else           fprintf(stderr, "%5d      ", n);
-
-	if (stride_x != stride_y) fprintf(stderr, "%2dx%2d/%2dx%2d ", size, size, stride_x, stride_y);
-	else {
-		if (dilation > 1) fprintf(stderr, "%2d x%2d/%2d(%1d)", size, size, stride_x, dilation);
-		else             fprintf(stderr, "%2d x%2d/%2d   ", size, size, stride_x);
+	layer.bflops = (2.0 * layer.nweights * layer.out_h * layer.out_w) / 1000000000.0f;
+	if (layer.xnor)
+	{
+		layer.bflops = layer.bflops / 32;
+	}
+	if (layer.xnor and layer.use_bin_output)
+	{
+		fprintf(stderr, "convXB");
+	}
+	else if (layer.xnor)
+	{
+		fprintf(stderr, "convX ");
+	}
+	else if (layer.share_layer)
+	{
+		fprintf(stderr, "convS ");
+	}
+	else if (layer.assisted_excitation)
+	{
+		fprintf(stderr, "convAE");
+	}
+	else
+	{
+		fprintf(stderr, "conv  ");
 	}
 
-	fprintf(stderr, "%4d x%4d x%4d -> %4d x%4d x%4d %5.3f BF\n", w, h, c, l.out_w, l.out_h, l.out_c, l.bflops);
+	if (groups > 1)
+	{
+		fprintf(stderr, "%5d/%4d ", n, groups);
+	}
+	else
+	{
+		fprintf(stderr, "%5d      ", n);
+	}
+
+	if (stride_x != stride_y)
+	{
+		fprintf(stderr, "%2dx%2d/%2dx%2d ", size, size, stride_x, stride_y);
+	}
+	else
+	{
+		if (dilation > 1)
+		{
+			fprintf(stderr, "%2d x%2d/%2d(%1d)", size, size, stride_x, dilation);
+		}
+		else
+		{
+			fprintf(stderr, "%2d x%2d/%2d   ", size, size, stride_x);
+		}
+	}
+
+	fprintf(stderr, "%4d x%4d x%4d -> %4d x%4d x%4d %5.3f BF\n", w, h, c, layer.out_w, layer.out_h, layer.out_c, layer.bflops);
 
 	//fprintf(stderr, "%5d/%2d %2d x%2d /%2d(%d)%4d x%4d x%4d  -> %4d x%4d x%4d %5.3f BF\n", n, groups, size, size, stride, dilation, w, h, c, l.out_w, l.out_h, l.out_c, l.bflops);
 
-	if (l.antialiasing) {
+	if (layer.antialiasing)
+	{
 		printf("AA:  ");
-		l.input_layer = (layer*)calloc(1, sizeof(layer));
+		layer.input_layer = (Layer*)calloc(1, sizeof(Layer)); // I think this line had a bug in the memory it would allocate
 		int blur_size = 3;
 		int blur_pad = blur_size / 2;
-		if (l.antialiasing == 2) {
+		if (layer.antialiasing == 2)
+		{
 			blur_size = 2;
 			blur_pad = 0;
 		}
-		*(l.input_layer) = make_convolutional_layer(batch, steps, out_h, out_w, n, n, n, blur_size, blur_stride_x, blur_stride_y, 1, blur_pad, LINEAR, 0, 0, 0, 0, 0, index, 0, NULL, 0, 0, train);
+		make_convolutional_layer(*layer.input_layer, batch, steps, out_h, out_w, n, n, n, blur_size, blur_stride_x, blur_stride_y, 1, blur_pad, EActivation::kLinear, 0, 0, 0, 0, 0, index, 0, NULL, 0, 0, train);
 		const int blur_nweights = n * blur_size * blur_size;  // (n / n) * n * blur_size * blur_size;
 		int i;
-		if (blur_size == 2) {
-			for (i = 0; i < blur_nweights; i += (blur_size*blur_size)) {
-				l.input_layer->weights[i + 0] = 1 / 4.f;
-				l.input_layer->weights[i + 1] = 1 / 4.f;
-				l.input_layer->weights[i + 2] = 1 / 4.f;
-				l.input_layer->weights[i + 3] = 1 / 4.f;
+		if (blur_size == 2)
+		{
+			for (i = 0; i < blur_nweights; i += (blur_size*blur_size))
+			{
+				layer.input_layer->weights[i + 0] = 1 / 4.f;
+				layer.input_layer->weights[i + 1] = 1 / 4.f;
+				layer.input_layer->weights[i + 2] = 1 / 4.f;
+				layer.input_layer->weights[i + 3] = 1 / 4.f;
 			}
 		}
-		else {
+		else
+		{
 			for (i = 0; i < blur_nweights; i += (blur_size*blur_size)) {
-				l.input_layer->weights[i + 0] = 1 / 16.f;
-				l.input_layer->weights[i + 1] = 2 / 16.f;
-				l.input_layer->weights[i + 2] = 1 / 16.f;
+				layer.input_layer->weights[i + 0] = 1 / 16.0f;
+				layer.input_layer->weights[i + 1] = 2 / 16.0f;
+				layer.input_layer->weights[i + 2] = 1 / 16.0f;
 
-				l.input_layer->weights[i + 3] = 2 / 16.f;
-				l.input_layer->weights[i + 4] = 4 / 16.f;
-				l.input_layer->weights[i + 5] = 2 / 16.f;
+				layer.input_layer->weights[i + 3] = 2 / 16.0f;
+				layer.input_layer->weights[i + 4] = 4 / 16.0f;
+				layer.input_layer->weights[i + 5] = 2 / 16.0f;
 
-				l.input_layer->weights[i + 6] = 1 / 16.f;
-				l.input_layer->weights[i + 7] = 2 / 16.f;
-				l.input_layer->weights[i + 8] = 1 / 16.f;
+				layer.input_layer->weights[i + 6] = 1 / 16.0f;
+				layer.input_layer->weights[i + 7] = 2 / 16.0f;
+				layer.input_layer->weights[i + 8] = 1 / 16.0f;
 			}
 		}
-		for (i = 0; i < n; ++i) l.input_layer->biases[i] = 0;
+
+		for (i = 0; i < n; ++i)
+		{
+			layer.input_layer->biases[i] = 0;
+		}
+
 		#ifdef GPU
-		if (gpu_index >= 0) {
-			l.input_antialiasing_gpu = cuda_make_array(NULL, l.batch*l.outputs);
-			push_convolutional_layer(*(l.input_layer));
+		if (gpu_index >= 0)
+		{
+			layer.input_antialiasing_gpu = cuda_make_array(NULL, layer.batch * layer.outputs);
+			push_convolutional_layer(*(layer.input_layer));
 		}
 		#endif  // GPU
 	}
 
-	return l;
+	return layer;
+}
+
+
+int Darknet_ng::convolutional_out_width(const Layer & layer)
+{
+	return (layer.w + 2 * layer.pad - layer.size) / layer.stride_x + 1;
+}
+
+
+int Darknet_ng::convolutional_out_height(const Layer & layer)
+{
+	return (layer.h + 2 * layer.pad - layer.size) / layer.stride_y + 1;
+}
+
+
+size_t Darknet_ng::get_convolutional_workspace_size(const Layer & layer)
+{
+	size_t workspace_size	= get_workspace_size32(layer);
+	size_t workspace_size16	= get_workspace_size16(layer);
+	if (workspace_size16 > workspace_size)
+	{
+		workspace_size = workspace_size16;
+	}
+
+	return workspace_size;
 }

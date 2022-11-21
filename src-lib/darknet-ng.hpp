@@ -7,11 +7,15 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <opencv2/opencv.hpp>
 
 
 /// The Darknet-NG namespace.
 namespace Darknet_ng
 {
+	/// @todo get rid of this soon
+	#define xcalloc(m, s) calloc(m, s)
+
 	/// @{ Simple type names used throughout Darknet-NG (vectors and maps of commonly-used types).
 	using MStr	= std::map		<std::string, std::string	>;
 	using VStr	= std::vector	<std::string				>;
@@ -35,6 +39,9 @@ namespace Darknet_ng
 
 	/// Read the given text file line-by-line and store in a vector.  File must exist.
 	VStr read_text_file(const std::filesystem::path & filename);
+
+	/// Generate a random float.
+	float rand_uniform(float low, float high);
 }
 
 

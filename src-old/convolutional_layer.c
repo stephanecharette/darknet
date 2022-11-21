@@ -75,16 +75,6 @@ void binarize_input(float *input, int n, int size, float *binary)
     }
 }
 
-int convolutional_out_height(convolutional_layer l)
-{
-    return (l.h + 2*l.pad - l.size) / l.stride_y + 1;
-}
-
-int convolutional_out_width(convolutional_layer l)
-{
-    return (l.w + 2*l.pad - l.size) / l.stride_x + 1;
-}
-
 image get_convolutional_image(convolutional_layer l)
 {
     int h,w,c;
@@ -103,90 +93,7 @@ image get_convolutional_delta(convolutional_layer l)
     return float_to_image(w,h,c,l.delta);
 }
 
-size_t get_workspace_size32(layer l){
-#ifdef CUDNN
-    if(gpu_index >= 0){
-        size_t most = 0;
-        size_t s = 0;
-        CHECK_CUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn_handle(),
-                l.srcTensorDesc,
-                l.weightDesc,
-                l.convDesc,
-                l.dstTensorDesc,
-                l.fw_algo,
-                &s));
-        if (s > most) most = s;
-        CHECK_CUDNN(cudnnGetConvolutionBackwardFilterWorkspaceSize(cudnn_handle(),
-                l.srcTensorDesc,
-                l.ddstTensorDesc,
-                l.convDesc,
-                l.dweightDesc,
-                l.bf_algo,
-                &s));
-        if (s > most && l.train) most = s;
-        CHECK_CUDNN(cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn_handle(),
-                l.weightDesc,
-                l.ddstTensorDesc,
-                l.convDesc,
-                l.dsrcTensorDesc,
-                l.bd_algo,
-                &s));
-        if (s > most && l.train) most = s;
-        return most;
-    }
-    #endif
-    if (l.xnor) {
-        size_t re_packed_input_size = l.c * l.w * l.h * sizeof(float);
-        size_t workspace_size = (size_t)l.bit_align*l.size*l.size*l.c * sizeof(float);
-        if (workspace_size < re_packed_input_size) workspace_size = re_packed_input_size;
-        return workspace_size;
-    }
-    return (size_t)l.out_h*l.out_w*l.size*l.size*(l.c / l.groups)*sizeof(float);
-}
 
-size_t get_workspace_size16(layer l) {
-#if defined(CUDNN) && defined(CUDNN_HALF)
-    if (gpu_index >= 0) {
-        size_t most = 0;
-        size_t s = 0;
-        CHECK_CUDNN(cudnnGetConvolutionForwardWorkspaceSize(cudnn_handle(),
-            l.srcTensorDesc16,
-            l.weightDesc16,
-            l.convDesc,
-            l.dstTensorDesc16,
-            l.fw_algo16,
-            &s));
-        if (s > most) most = s;
-        CHECK_CUDNN(cudnnGetConvolutionBackwardFilterWorkspaceSize(cudnn_handle(),
-            l.srcTensorDesc16,
-            l.ddstTensorDesc16,
-            l.convDesc,
-            l.dweightDesc16,
-            l.bf_algo16,
-            &s));
-        if (s > most && l.train) most = s;
-        CHECK_CUDNN(cudnnGetConvolutionBackwardDataWorkspaceSize(cudnn_handle(),
-            l.weightDesc16,
-            l.ddstTensorDesc16,
-            l.convDesc,
-            l.dsrcTensorDesc16,
-            l.bd_algo16,
-            &s));
-        if (s > most && l.train) most = s;
-        return most;
-    }
-#endif
-    return 0;
-    //if (l.xnor) return (size_t)l.bit_align*l.size*l.size*l.c * sizeof(float);
-    //return (size_t)l.out_h*l.out_w*l.size*l.size*l.c * sizeof(float);
-}
-
-size_t get_convolutional_workspace_size(layer l) {
-    size_t workspace_size = get_workspace_size32(l);
-    size_t workspace_size16 = get_workspace_size16(l);
-    if (workspace_size16 > workspace_size) workspace_size = workspace_size16;
-    return workspace_size;
-}
 #ifdef GPU
 #ifdef CUDNN
 void create_convolutional_cudnn_tensors(layer *l)

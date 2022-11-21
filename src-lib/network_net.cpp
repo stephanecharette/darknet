@@ -66,7 +66,7 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 	if (settings.w < 1 or settings.h < 1 or settings.c < 1)
 	{
-		throw std::runtime_error("invalid channel or image dimensions in network section");
+		throw std::invalid_argument("invalid channel or image dimensions in network section");
 	}
 
 	settings.inputs							= net.i("inputs"						, settings.h * settings.w * settings.c);
@@ -101,7 +101,7 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 	if (settings.contrastive and mini_batch < 2)
 	{
-		throw std::runtime_error("mini_batch size (batch/subdivisions) should be higher than 1 for Contrastive loss");
+		throw std::invalid_argument("mini_batch size (batch/subdivisions) should be higher than 1 for Contrastive loss");
 	}
 
 	settings.label_smooth_eps				= net.f("label_smooth_eps"				, 0.0f	);
@@ -118,7 +118,7 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 	if (not settings.inputs and not (settings.h and settings.w and settings.c))
 	{
-		throw std::runtime_error("no input parameters supplied");
+		throw std::invalid_argument("no input parameters supplied");
 	}
 
 	settings.policy = learning_rate_policy_from_string(net.s("policy", "constant"));
@@ -153,7 +153,7 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 		if (settings.policy == ELearningRatePolicy::kSteps and (steps.empty() or scales.empty()))
 		{
-			throw std::runtime_error("\"Steps\" policy must have \"steps\" and \"scales\" in .cfg file");
+			throw std::invalid_argument("\"steps\" learning rate policy must have \"steps\" and \"scales\" in .cfg file");
 		}
 
 		// make sure "scales" and "seq_scales" have exactly the same number of entries as "steps"
@@ -172,6 +172,15 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 	else if (settings.policy == ELearningRatePolicy::kPoly or settings.policy == ELearningRatePolicy::kRandom)
 	{
 		//		settings.power = net.f("power", 1.0f);
+	}
+
+	if (settings.batch > 0)
+	{
+		settings.train = false;	// allocates memory for Inference only
+	}
+	else
+	{
+		settings.train = true;	// allocates memory for Inference & Training
 	}
 
 	return *this;

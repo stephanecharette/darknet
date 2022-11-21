@@ -49,9 +49,12 @@ Darknet_ng::Network & Darknet_ng::Network::clear()
 bool Darknet_ng::Network::empty() const
 {
 	return
-		steps		.empty() or
-		scales		.empty() or
-		seq_scales	.empty() or
+		settings.w	< 1			or
+		settings.h	< 1			or
+		settings.c	< 1			or
+		steps		.empty()	or
+		scales		.empty()	or
+		seq_scales	.empty()	or
 		layers		.empty();
 }
 
@@ -104,43 +107,52 @@ Darknet_ng::Network & Darknet_ng::Network::make_network(const Darknet_ng::Config
 
 Darknet_ng::Network & Darknet_ng::Network::parse_layers(const Config & cfg)
 {
+	if (cfg.sections.size() < 2)
+	{
+		throw std::invalid_argument("configuration contains an invalid number of sections");
+	}
+
+	// allocate the network layers -- the first section [net] is ignored, so we need 1 less than what is in the .cfg file
+	layers.resize(cfg.sections.size() - 1);
+
+	size_t layer_index = 0;
 	for (const auto & section : cfg.sections)
 	{
 		const ELayerType layer_type = layer_type_from_string(section.name);
+
+		if (layer_index == 0 and layer_type != ELayerType::kNetwork)
+		{
+			// something is wrong -- the first section should be [net] or [network]
+			throw std::logic_error("first section should be [net] or [network] but found [" + section.name + "] at line #" + std::to_string(section.line_number));
+		}
+		else if (layer_index > 0 and layer_type == ELayerType::kNetwork)
+		{
+			// the [net] or [network] should only appear once and be the first section we process
+			throw std::logic_error("unexpected [net] or [network] at index #" + std::to_string(layer_index + 1) + " at line #" + std::to_string(section.line_number));
+		}
+
 		switch (layer_type)
 		{
-			case ELayerType::kNetwork:			parse_net			(section);	break;
-			case ELayerType::kConvolutional:	parse_convolutional	(section);	break;
+			case ELayerType::kNetwork:			parse_net			(section);				break;
+			case ELayerType::kConvolutional:	parse_convolutional	(section, layer_index);	break;
 			case ELayerType::kRoute:
-			{
-				/// @todo need to handle parsing of layer type ELayerType::kRoute
-				std::cout << "placeholder to parse section \"" << section.name << "\" at line #" << section.line_number << std::endl;
-				break;
-			}
 			case ELayerType::kMaxPool:
-			{
-				/// @todo need to handle parsing of layer type ELayerType::kMaxPool
-				std::cout << "placeholder to parse section \"" << section.name << "\" at line #" << section.line_number << std::endl;
-				break;
-			}
 			case ELayerType::kYOLO:
-			{
-				/// @todo need to handle parsing of layer type ELayerType::kYOLO
-				std::cout << "placeholder to parse section \"" << section.name << "\" at line #" << section.line_number << std::endl;
-				break;
-			}
 			case ELayerType::kUpsample:
 			{
-				/// @todo need to handle parsing of layer type ELayerType::kUpsample
+				/// @todo need to handle parsing of layer types ELayerType::kRoute, ELayerType::kMaxPool, ELayerType::kYOLO, and ELayerType::kUpsample
 				std::cout << "placeholder to parse section \"" << section.name << "\" at line #" << section.line_number << std::endl;
 				break;
 			}
 			/// @todo Handle all of the other layer types and get rid of the @p default case
 			default:
 			{
-				throw std::runtime_error("unhandled layer type for section \"" + section.name + "\" at line #" + std::to_string(section.line_number));
+				throw std::invalid_argument("unhandled layer type for section \"" + section.name + "\" at line #" + std::to_string(section.line_number));
 			}
 		}
+
+		// we've processed a new layer, move to the next index
+		layer_index ++;
 	}
 
 	return *this;
@@ -192,8 +204,6 @@ Darknet_ng::Network Darknet_ng::parse_network_cfg_custom(const std::filesystem::
 {
 	size_params params;
 
-	if (batch > 0) params.train = 0;    // allocates memory for Inference only
-	else params.train = 1;              // allocates memory for Inference & Training
 
 	section *s = (section *)n->val;
 	list *options = s->options;

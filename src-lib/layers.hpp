@@ -140,7 +140,7 @@ namespace Darknet_ng
 		int index;
 		int scale_wh;
 		int binary;
-		int xnor;
+		int xnor; // boolean flag?
 		int peephole;
 		int use_bin_output;
 		int keep_delta_gpu;
@@ -379,47 +379,47 @@ namespace Darknet_ng
 		uint32_t *bin_re_packed_input;
 		char *t_bit_input;
 
-		struct layer *input_layer;
-		struct layer *self_layer;
-		struct layer *output_layer;
+		Layer *input_layer;
+		Layer *self_layer;
+		Layer *output_layer;
 
-		struct layer *reset_layer;
-		struct layer *update_layer;
-		struct layer *state_layer;
+		Layer *reset_layer;
+		Layer *update_layer;
+		Layer *state_layer;
 
-		struct layer *input_gate_layer;
-		struct layer *state_gate_layer;
-		struct layer *input_save_layer;
-		struct layer *state_save_layer;
-		struct layer *input_state_layer;
-		struct layer *state_state_layer;
+		Layer *input_gate_layer;
+		Layer *state_gate_layer;
+		Layer *input_save_layer;
+		Layer *state_save_layer;
+		Layer *input_state_layer;
+		Layer *state_state_layer;
 
-		struct layer *input_z_layer;
-		struct layer *state_z_layer;
+		Layer *input_z_layer;
+		Layer *state_z_layer;
 
-		struct layer *input_r_layer;
-		struct layer *state_r_layer;
+		Layer *input_r_layer;
+		Layer *state_r_layer;
 
-		struct layer *input_h_layer;
-		struct layer *state_h_layer;
+		Layer *input_h_layer;
+		Layer *state_h_layer;
 
-		struct layer *wz;
-		struct layer *uz;
-		struct layer *wr;
-		struct layer *ur;
-		struct layer *wh;
-		struct layer *uh;
-		struct layer *uo;
-		struct layer *wo;
-		struct layer *vo;
-		struct layer *uf;
-		struct layer *wf;
-		struct layer *vf;
-		struct layer *ui;
-		struct layer *wi;
-		struct layer *vi;
-		struct layer *ug;
-		struct layer *wg;
+		Layer *wz;
+		Layer *uz;
+		Layer *wr;
+		Layer *ur;
+		Layer *wh;
+		Layer *uh;
+		Layer *uo;
+		Layer *wo;
+		Layer *vo;
+		Layer *uf;
+		Layer *wf;
+		Layer *vf;
+		Layer *ui;
+		Layer *wi;
+		Layer *vi;
+		Layer *ug;
+		Layer *wg;
 
 		Tree *softmax_tree;
 
@@ -564,4 +564,9 @@ namespace Darknet_ng
 		//#endif  // GPU
 	};
 	using Layers = std::vector<Layer>;
+
+	Layer make_convolutional_layer(Layer & layer, int batch, int steps, int h, int w, int c, int n, int groups, int size, int stride_x, int stride_y, int dilation, int padding, EActivation activation, int batch_normalize, int binary, int xnor, int adam, int use_bin_output, int index, int antialiasing, Layer *share_layer, int assisted_excitation, int deform, int train);
+
+	size_t get_workspace_size32(const Darknet_ng::Layer & layer);
+	size_t get_workspace_size16(const Darknet_ng::Layer & layer);
 }

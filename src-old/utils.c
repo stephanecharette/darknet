@@ -838,22 +838,6 @@ size_t rand_size_t()
             ((size_t)(random_gen()&0xff) << 0);
 }
 
-float rand_uniform(float min, float max)
-{
-    if(max < min){
-        float swap = min;
-        min = max;
-        max = swap;
-    }
-
-#if (RAND_MAX < 65536)
-        int rnd = rand()*(RAND_MAX + 1) + rand();
-        return ((float)rnd / (RAND_MAX*RAND_MAX) * (max - min)) + min;
-#else
-        return ((float)rand() / RAND_MAX * (max - min)) + min;
-#endif
-    //return (random_float() * (max - min)) + min;
-}
 
 float rand_scale(float s)
 {
