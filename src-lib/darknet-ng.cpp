@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <fstream>
 #include <random>
+#include <unistd.h>
 #include "darknet-ng.hpp"
 
 
@@ -88,15 +89,41 @@ Darknet_ng::VStr Darknet_ng::read_text_file(const std::filesystem::path & filena
 }
 
 
+std::default_random_engine & get_engine()
+{
+	static std::default_random_engine engine(
+		[]() -> uint64_t
+		{
+			const auto now		= std::chrono::system_clock::now();
+			const auto duration	= now.time_since_epoch();
+			const uint64_t ns	= std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count();
+			const uint64_t pid	= getpid();
+			const uint64_t seed	= pid * ns;
+std::cout << "SEED=" << seed << std::endl; ///< @todo remove this line
+			return seed;
+		}()
+	);
+
+	return engine;
+}
+
+
 float Darknet_ng::rand_uniform(float low, float high)
 {
-	if (low < high)
+	if (low > high)
 	{
 		std::swap(low, high);
 	}
 
-	static std::default_random_engine engine;
-	static std::uniform_real_distribution<> distribution(low, high); // rage 0 - 1
+	/** @todo Note that the range is [low, high) meaning if you pass in 0.0f and 1.0f, you might get 0.999999999f but
+	 * never 1.0f.  Need to look up what the original function did to see if this behaviour is similar, and possibly
+	 * also where it is used to see if we should care.
+	 */
+	std::uniform_real_distribution<float> distribution(low, high);
 
-	return distribution(engine);
+	auto result = distribution(get_engine());
+
+std::cout << "RND LOW=" << low << " HIGH=" << high << " RESULT=" << result << std::endl; ///< @todo remove this line
+
+	return result;
 }
