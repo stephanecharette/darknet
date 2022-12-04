@@ -109,7 +109,8 @@ Darknet_ng::Network & Darknet_ng::Network::parse_layers(const Config & cfg)
 {
 	if (cfg.sections.size() < 2)
 	{
-		throw std::invalid_argument("configuration contains an invalid number of sections");
+		/// @throw Exception There must be multiple layers to make a valid configuration.
+		throw Exception("configuration contains an invalid number of sections", DNG_LOC);
 	}
 
 	// allocate the network layers -- the first section [net] is ignored, so we need 1 less than what is in the .cfg file
@@ -123,12 +124,16 @@ Darknet_ng::Network & Darknet_ng::Network::parse_layers(const Config & cfg)
 		if (layer_index == 0 and layer_type != ELayerType::kNetwork)
 		{
 			// something is wrong -- the first section should be [net] or [network]
-			throw std::logic_error("first section should be [net] or [network] but found [" + section.name + "] at line #" + std::to_string(section.line_number));
+
+			/// @throw Exception The first layer should be [net] or [network].
+			throw Exception("first section should be [net] or [network] but found [" + section.name + "] at line #" + std::to_string(section.line_number), DNG_LOC);
 		}
 		else if (layer_index > 0 and layer_type == ELayerType::kNetwork)
 		{
 			// the [net] or [network] should only appear once and be the first section we process
-			throw std::logic_error("unexpected [net] or [network] at index #" + std::to_string(layer_index + 1) + " at line #" + std::to_string(section.line_number));
+
+			/// @throw Exception The [net] or [network] layer should only appear once.
+			throw Exception("unexpected [net] or [network] at index #" + std::to_string(layer_index + 1) + " at line #" + std::to_string(section.line_number), DNG_LOC);
 		}
 
 		switch (layer_type)
@@ -147,7 +152,8 @@ Darknet_ng::Network & Darknet_ng::Network::parse_layers(const Config & cfg)
 			/// @todo Handle all of the other layer types and get rid of the @p default case
 			default:
 			{
-				throw std::invalid_argument("unhandled layer type for section \"" + section.name + "\" at line #" + std::to_string(section.line_number));
+				/// @throw Exception Unsupported layer type.
+				throw Exception("unhandled layer type for section \"" + section.name + "\" at line #" + std::to_string(section.line_number), DNG_LOC);
 			}
 		}
 

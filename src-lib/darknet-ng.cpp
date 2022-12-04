@@ -69,13 +69,15 @@ Darknet_ng::VStr Darknet_ng::read_text_file(const std::filesystem::path & filena
 {
 	if (not std::filesystem::exists(filename))
 	{
-		throw std::invalid_argument("file does not exist: \"" + filename.string() + "\"");
+		/// @throw Exception The file does not exist.
+		throw Exception("file does not exist: \"" + filename.string() + "\"", DNG_LOC);
 	}
 
 	std::ifstream ifs(filename);
 	if (not ifs.good())
 	{
-		throw std::invalid_argument("failed to read file: \"" + filename.string() + "\"");
+		/// @throw Exception The file cannot be read.  (Permission issue?)
+		throw Exception("failed to read file: \"" + filename.string() + "\"", DNG_LOC);
 	}
 
 	VStr v;
@@ -123,7 +125,7 @@ float Darknet_ng::rand_uniform(float low, float high)
 
 	auto result = distribution(get_engine());
 
-std::cout << "RND LOW=" << low << " HIGH=" << high << " RESULT=" << result << std::endl; ///< @todo remove this line
+std::cout << "RND LOW=" << low << " HIGH=" << high << " RESULT=" << result << std::endl; /// @todo remove this line
 
 	return result;
 }

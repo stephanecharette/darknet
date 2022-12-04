@@ -57,7 +57,8 @@ Darknet_ng::ELayerType Darknet_ng::layer_type_from_string(const std::string & st
 		return m.at(name);
 	}
 
-	throw std::invalid_argument("invalid layer type: \"" + name + "\"");
+	/// @throw Exception The given name is not a valid layer type.
+	throw Exception("invalid layer type: \"" + name + "\"", DNG_LOC);
 }
 
 
@@ -108,7 +109,8 @@ std::string Darknet_ng::to_string(const Darknet_ng::ELayerType & layer_type)
 		case ELayerType::kMax:				break;
 	}
 
-	throw std::invalid_argument("unknown layer type: " + std::to_string(static_cast<int>(layer_type)));
+	/// @throw Exception The given layer type enum is unknown.
+	throw Exception("unknown layer type: " + std::to_string(static_cast<int>(layer_type)), DNG_LOC);
 }
 
 

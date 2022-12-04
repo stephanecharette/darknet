@@ -223,4 +223,5 @@ namespace Darknet_ng
 	int convolutional_out_width(const Layer & layer);
 	int convolutional_out_height(const Layer & layer);
 	size_t get_convolutional_workspace_size(const Layer & layer);
+	void forward_convolutional_layer(const Layer & layer, const NetworkState & state);
 }

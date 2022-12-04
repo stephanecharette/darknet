@@ -66,7 +66,8 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 	if (settings.w < 1 or settings.h < 1 or settings.c < 1)
 	{
-		throw std::invalid_argument("invalid channel or image dimensions in network section");
+		/// @throw Exception Invalid width, height, or channel.
+		throw Exception("invalid channel or image dimensions in network section", DNG_LOC);
 	}
 
 	settings.inputs							= net.i("inputs"						, settings.h * settings.w * settings.c);
@@ -101,7 +102,8 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 	if (settings.contrastive and mini_batch < 2)
 	{
-		throw std::invalid_argument("mini_batch size (batch/subdivisions) should be higher than 1 for Contrastive loss");
+		/// @throw Exception Mini batch size should be higher than 1 for Constrastive loss.
+		throw Exception("mini_batch size (batch/subdivisions) should be higher than 1 for Contrastive loss", DNG_LOC);
 	}
 
 	settings.label_smooth_eps				= net.f("label_smooth_eps"				, 0.0f	);
@@ -118,7 +120,8 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 	if (not settings.inputs and not (settings.h and settings.w and settings.c))
 	{
-		throw std::invalid_argument("no input parameters supplied");
+		/// @throw Exception Missing input parameters.
+		throw Exception("no input parameters supplied", DNG_LOC);
 	}
 
 	settings.policy = learning_rate_policy_from_string(net.s("policy", "constant"));
@@ -153,7 +156,8 @@ Darknet_ng::Network & Darknet_ng::Network::parse_net(const Section & net)
 
 		if (settings.policy == ELearningRatePolicy::kSteps and (steps.empty() or scales.empty()))
 		{
-			throw std::invalid_argument("\"steps\" learning rate policy must have \"steps\" and \"scales\" in .cfg file");
+			/// @throw Exception Learning rate policy is missing @p steps and/or @p scales.
+			throw Exception("\"steps\" learning rate policy must have \"steps\" and \"scales\" in .cfg file", DNG_LOC);
 		}
 
 		// make sure "scales" and "seq_scales" have exactly the same number of entries as "steps"

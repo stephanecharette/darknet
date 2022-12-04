@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <exception>
 #include <filesystem>
 #include <map>
 #include <string>
@@ -45,6 +46,7 @@ namespace Darknet_ng
 }
 
 
+#include "Exception.hpp"
 #include "enums.hpp"
 #include "structs.hpp"
 #include "activation.hpp"

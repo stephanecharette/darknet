@@ -18,7 +18,8 @@ Darknet_ng::ELearningRatePolicy Darknet_ng::learning_rate_policy_from_string(con
 		}
 	}
 
-	throw std::invalid_argument("invalid learning rate policy: \"" + name + "\"");
+	/// @throw Exception The given string is not a valid learning rate policy.
+	throw Exception("invalid learning rate policy: \"" + name + "\"", DNG_LOC);
 }
 
 
@@ -37,5 +38,6 @@ std::string Darknet_ng::to_string(const Darknet_ng::ELearningRatePolicy & learni
 		case Darknet_ng::ELearningRatePolicy::kMax:			break;
 	}
 
-	throw std::invalid_argument("unknown learning rate policy: " + std::to_string(static_cast<int>(learning_rate_policy)));
+	/// @throw Exception The learning rate policy enum is invalid or not supported.
+	throw Exception("invalid learning rate policy: " + std::to_string(static_cast<int>(learning_rate_policy)), DNG_LOC);
 }

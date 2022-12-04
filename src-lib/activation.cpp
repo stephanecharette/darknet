@@ -18,7 +18,8 @@ Darknet_ng::EActivation Darknet_ng::activation_from_string(const std::string & s
 		}
 	}
 
-	throw std::invalid_argument("invalid activation: \"" + name + "\"");
+	/// @throw Exception The string provided must be an activation name.
+	throw Exception("invalid activation: \"" + name + "\"", DNG_LOC);
 }
 
 
@@ -52,5 +53,6 @@ std::string Darknet_ng::to_string(const Darknet_ng::EActivation & activation)
 		case EActivation::kMax:						break;
 	}
 
-	throw std::invalid_argument("unknown activation: " + std::to_string(static_cast<int>(activation)));
+	/// @throw Exception The activation enum is unknown or not supported.
+	throw Exception("unknown or invalid activation enum: " + std::to_string(static_cast<int>(activation)), DNG_LOC);
 }

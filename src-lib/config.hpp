@@ -11,7 +11,7 @@ namespace Darknet_ng
 	/** A "section" is the [...] name and all key-value pairs that follow that name.  Note that sections are not unique.
 	 * For example, a configuration file might have multiple @p [yolo] sections, so don't store these in a set or a map.
 	 *
-	 * Sections names and keys are automatically converted to lowercase when a configuration file is parsed.  An example
+	 * Section names and keys are automatically converted to lowercase when a configuration file is parsed.  An example
 	 * section might be:
 	 *
 	 * ~~~~{.txt}
@@ -61,22 +61,22 @@ namespace Darknet_ng
 			 */
 			const std::string & operator[](const std::string & key) const;
 
-			/// Get the value corresponding to a key, and convert it to an integer.  The key must exist, and must be numeric.
+			/// Get the value corresponding to a key, and convert it to an @b integer.  The key must exist, and must be numeric.
 			int i(const std::string & key) const;
 
-			/// Get the value corresponding to a key, and convert it to an integer.  If the key does not exist, use the provided default value.
+			/// Get the value corresponding to a key, and convert it to an @b integer.  If the key does not exist, use the provided default value.
 			int i(const std::string & key, const int default_value) const;
 
-			/// Get the value corresponding to a key, and convert it to a float.  The key must exist, and must be numeric.
+			/// Get the value corresponding to a key, and convert it to a @b float.  The key must exist, and must be numeric.
 			float f(const std::string & key) const;
 
-			/// Get the value corresponding to a key, and convert it to a float.  If the key does not exist, use the provided default value.
+			/// Get the value corresponding to a key, and convert it to a @b float.  If the key does not exist, use the provided default value.
 			float f(const std::string & key, const float default_value) const;
 
-			/// Get the value corresponding to a key, and convert it to a bool.  The key must exist, and must be @p 0, @p 1, @p true, or @p false.
+			/// Get the value corresponding to a key, and convert it to a @b bool.  The key must exist, and must be @p 0, @p 1, @p true, or @p false.
 			bool b(const std::string & key) const;
 
-			/// Get the value corresponding to a key, and convert it to a bool.  If the key does not exist, use the provided default value.
+			/// Get the value corresponding to a key, and convert it to a @b bool.  If the key does not exist, use the provided default value.
 			bool b(const std::string & key, const bool default_value) const;
 
 			/// Get the value corresponding to a key.  The key must exist.
@@ -85,7 +85,7 @@ namespace Darknet_ng
 			/// Get the value corresponding to a key.  If the key does not exist, use the provided default value.
 			std::string s(const std::string & key, const std::string & default_value) const;
 
-			/** Interpret the given key as a vector of integers.  The vector may be empty if the key does not exist or does not
+			/** Interpret the given key as a vector of @b integers.  The vector may be empty if the key does not exist or does not
 			 * contain any values.
 			 *
 			 * Examples of this would be:
@@ -96,7 +96,7 @@ namespace Darknet_ng
 			 */
 			VI vi(const std::string & key) const;
 
-			/** Interpret the given key as a vector of floats.  The vector may be empty if the key does not exist or does not
+			/** Interpret the given key as a vector of @b floats.  The vector may be empty if the key does not exist or does not
 			 * contain any values.
 			 *
 			 * Examples of this would be:

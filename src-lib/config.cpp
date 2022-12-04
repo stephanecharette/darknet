@@ -80,7 +80,8 @@ int Darknet_ng::Section::i(const std::string & key) const
 	}
 	catch (std::exception & e)
 	{
-		throw std::logic_error(key_name + " in section [" + name + "] cannot be converted to an integer (" + val + ")");
+		/// @throw Exception The given key cannot be converted to an integer.
+		throw Exception(key_name + " in section [" + name + "] cannot be converted to an integer (" + val + ")", DNG_LOC);
 	}
 
 	return result;
@@ -116,7 +117,8 @@ float Darknet_ng::Section::f(const std::string & key) const
 	}
 	catch (std::exception & e)
 	{
-		throw std::logic_error(key_name + " in section [" + name + "] cannot be converted to a float (" + val + ")");
+		/// @throw Exception The given key cannot be converted to a float.
+		throw Exception(key_name + " in section [" + name + "] cannot be converted to a float (" + val + ")", DNG_LOC);
 	}
 
 	return result;
@@ -160,7 +162,8 @@ bool Darknet_ng::Section::b(const std::string & key) const
 		return true;
 	}
 
-	throw std::logic_error(key_name + " in section [" + name + "] cannot be converted to a bool (" + val + ")");
+	/// @throw Exception The given key cannot be converted to a bool.
+	throw Exception(key_name + " in section [" + name + "] cannot be converted to a bool (" + val + ")", DNG_LOC);
 }
 
 
@@ -292,7 +295,7 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 	 *
 	 *	1) blank lines
 	 *	2) comments (starts with "#" or ";")
-	 *	3) sections names, such as "[net]"
+	 *	3) section names, such as "[net]"
 	 *	4) key-value pairs, such as "batch = 1"
 	 */
 	const std::regex rx(
@@ -322,7 +325,8 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 		const bool found = std::regex_search(line, m, rx);
 		if (not found)
 		{
-			throw std::logic_error("failed to parse line #" + std::to_string(line_number) + " in " + cfg_filename.string());
+			/// @throw Exception The line is not a valid configuration line.
+			throw Exception("failed to parse line #" + std::to_string(line_number) + " in " + cfg_filename.string(), DNG_LOC);
 		}
 
 		const std::string section_name	= lowercase(m.str(1));
@@ -346,26 +350,30 @@ Darknet_ng::Config & Darknet_ng::Config::read(const std::filesystem::path & cfg_
 
 		if (sections.empty())
 		{
-			throw std::logic_error("config cannot have values prior to \"[...]\" section name at line " + std::to_string(line_number));
+			/// @throw Exception The configuration should not begin before a section name.
+			throw Exception("config cannot have values prior to \"[...]\" section name at line " + std::to_string(line_number), DNG_LOC);
 		}
 
 		// add this key-pair to the *most recent* section that we created
 		Section & section = *sections.rbegin();
 		if (section.kv_pairs.count(key) > 0)
 		{
-			throw std::logic_error("[" + section.name + "] already contains " + key + "=" + section.kv_pairs[key] + ", but duplicate key found on line #" + std::to_string(line_number));
+			/// @throw Exception A section should not contain duplicate keys.
+			throw Exception("[" + section.name + "] already contains " + key + "=" + section.kv_pairs[key] + ", but duplicate key found on line #" + std::to_string(line_number), DNG_LOC);
 		}
 		section.kv_pairs[key] = val;
 	}
 
 	if (empty())
 	{
-		throw std::invalid_argument("configuration file is empty: \"" + cfg_filename.string() + "\"");
+		/// @throw Exception The configuration file appears to be empty.
+		throw Exception("configuration file is empty: \"" + cfg_filename.string() + "\"", DNG_LOC);
 	}
 
 	if (layer_type_from_string(sections[0].name) != ELayerType::kNetwork)
 	{
-		throw std::logic_error("configuration file must start with [net] or [network] section: " + cfg_filename.string() + "\"");
+		/// @throw Exception The configuration file should start with [net] or [network].
+		throw Exception("configuration file must start with [net] or [network] section: " + cfg_filename.string() + "\"", DNG_LOC);
 	}
 
 	return *this;
@@ -396,7 +404,8 @@ const Darknet_ng::Section & Darknet_ng::Config::find(const std::string & name) c
 		}
 	}
 
-	throw std::invalid_argument("configuration does not have a section named \"" + section_name + "\"");
+	/// @throw Exception The configuration file does not have a section with the given name.
+	throw Exception("configuration does not have a section named \"" + section_name + "\"", DNG_LOC);
 }
 
 
@@ -414,7 +423,8 @@ const Darknet_ng::Section & Darknet_ng::Config::find_next(const std::string & na
 
 	if (iter == sections.end())
 	{
-		throw std::invalid_argument("failed to find the exact section \"" + previous_section.name + "\" in the configuration");
+		/// @throw Exception The given previous section was not found within the configuration file.
+		throw Exception("failed to find the exact section \"" + previous_section.name + "\" in the configuration", DNG_LOC);
 	}
 
 	// if we get here, then we've found "previous_section" so all that remains is to find the next instance of the given name
@@ -435,7 +445,8 @@ const Darknet_ng::Section & Darknet_ng::Config::find_next(const std::string & na
 		}
 	}
 
-	throw std::invalid_argument("configuration does not have a section named \"" + section_name + "\" after the given section \"" + previous_section.name + "\"");
+	/// @throw Exception The given section name was not found.
+	throw Exception("configuration does not have a section named \"" + section_name + "\" after the given section \"" + previous_section.name + "\"", DNG_LOC);
 }
 
 

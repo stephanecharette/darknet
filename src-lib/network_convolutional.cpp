@@ -34,19 +34,21 @@ Darknet_ng::Network & Darknet_ng::Network::parse_convolutional(const Darknet_ng:
 	const int binary				= section.i("binary"				, 0);
 	const int xnor					= section.i("xnor"					, 0);
 	const int use_bin_output		= section.i("bin_output"			, 0);
-	const int sway					= section.i("sway"					, 0); ///< @todo should this be a bool?
-	const int rotate				= section.i("rotate"				, 0); ///< @todo should this be a bool?
-	const int stretch				= section.i("stretch"				, 0); ///< @todo should this be a bool?
-	const int stretch_sway			= section.i("stretch_sway"			, 0); ///< @todo should this be a bool?
+	const int sway					= section.i("sway"					, 0); /// @todo should this be a bool?
+	const int rotate				= section.i("rotate"				, 0); /// @todo should this be a bool?
+	const int stretch				= section.i("stretch"				, 0); /// @todo should this be a bool?
+	const int stretch_sway			= section.i("stretch_sway"			, 0); /// @todo should this be a bool?
 
 	const int deform = sway + rotate + stretch + stretch_sway;
 	if (deform < 0 or deform > 1)
 	{
-		throw std::invalid_argument("convolutional layer at line #" + std::to_string(section.line_number) + " must only enable a maximum of 1 of sway, rotate, stretch, or stretch_sway");
+		/// @throw Exception Convolution layer cannot enable more than one of sway, rotate, stretch, or stretch_sway.
+		throw Exception("convolutional layer at line #" + std::to_string(section.line_number) + " must only enable a maximum of 1 of sway, rotate, stretch, or stretch_sway", DNG_LOC);
 	}
 	if (deform == 1 and size == 1)
 	{
-		throw std::invalid_argument("convolutional layer at line #" + std::to_string(section.line_number) + " must have a larger size to use sway, rotate, stretch, or stretch_sway");
+		/// @throw Exception Convolution layer must have a larger size to enable sway, rotate, stretch, or stretch_sway.
+		throw Exception("convolutional layer at line #" + std::to_string(section.line_number) + " must have a larger size to use sway, rotate, stretch, or stretch_sway", DNG_LOC);
 	}
 
 	const int share_index = section.i("share_index", -1000000000);
@@ -596,4 +598,239 @@ size_t Darknet_ng::get_convolutional_workspace_size(const Layer & layer)
 	}
 
 	return workspace_size;
+}
+
+
+void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkState & state)
+{
+	// was: void forward_convolutional_layer(convolutional_layer l, network_state state)
+
+	int out_h = convolutional_out_height(layer);
+	int out_w = convolutional_out_width(layer);
+	int i, j;
+
+	fill_cpu(layer.outputs * layer.batch, 0, layer.output, 1);
+
+	if (layer.xnor and (not layer.align_bit_weights or state.train))
+	{
+		if (not layer.align_bit_weights or state.train)
+		{
+			binarize_weights(layer.weights, layer.n, layer.nweights, layer.binary_weights);
+			//printf("\n binarize_weights l.align_bit_weights = %p \n", l.align_bit_weights);
+		}
+		swap_binary(&layer);
+		binarize_cpu(state.input, layer.c * layer.h * layer.w * layer.batch, layer.binary_input);
+		state.input = layer.binary_input;
+	}
+
+	int m = layer.n / layer.groups;
+	int k = layer.size * layer.size * layer.c / layer.groups;
+	int n = out_h * out_w;
+
+	static int u = 0;
+	u++;
+
+	for(i = 0; i < layer.batch; ++i)
+	{
+		for (j = 0; j < layer.groups; ++j)
+		{
+			float *a = layer.weights + j * layer.nweights / layer.groups;
+			float *b = state.workspace;
+			float *c = layer.output +(i * layer.groups + j) * n * m;
+
+			//gemm(0,0,m,n,k,1,a,k,b,n,1,c,n);
+			//gemm_nn_custom(m, n, k, 1, a, k, b, n, c, n);
+			if (layer.xnor and layer.align_bit_weights and not state.train and layer.stride_x == layer.stride_y)
+			{
+				memset(b, 0, layer.bit_align * layer.size * layer.size * layer.c * sizeof(float));
+
+				if (layer.c % 32 == 0)
+				{
+					//printf(" l.index = %d - new XNOR \n", l.index);
+
+					int ldb_align = layer.lda_align;
+					size_t new_ldb = k + (ldb_align - k % ldb_align); // (k / 8 + 1) * 8;
+					//size_t t_intput_size = new_ldb * l.bit_align;// n;
+					//size_t t_bit_input_size = t_intput_size / 8;// +1;
+
+					int re_packed_input_size = layer.c * layer.w * layer.h;
+					memset(state.workspace, 0, re_packed_input_size * sizeof(float));
+
+					const size_t new_c = layer.c / 32;
+					size_t in_re_packed_input_size = new_c * layer.w * layer.h + 1;
+					memset(layer.bin_re_packed_input, 0, in_re_packed_input_size * sizeof(uint32_t));
+
+					//float *re_packed_input = calloc(l.c * l.w * l.h, sizeof(float));
+					//uint32_t *bin_re_packed_input = calloc(new_c * l.w * l.h + 1, sizeof(uint32_t));
+
+					// float32x4 by channel (as in cuDNN)
+					repack_input(state.input, state.workspace, layer.w, layer.h, layer.c);
+
+					// 32 x floats -> 1 x uint32_t
+					float_to_bit(state.workspace, (unsigned char *)layer.bin_re_packed_input, layer.c * layer.w * layer.h);
+
+					//free(re_packed_input);
+
+					// slow - convolution the packed inputs and weights: float x 32 by channel (as in cuDNN)
+					//convolution_repacked((uint32_t *)bin_re_packed_input, (uint32_t *)l.align_bit_weights, l.output,
+					//    l.w, l.h, l.c, l.n, l.size, l.pad, l.new_lda, l.mean_arr);
+
+					// // then exit from if()
+
+
+					im2col_cpu_custom((float *)layer.bin_re_packed_input, new_c, layer.h, layer.w, layer.size, layer.stride, layer.pad, state.workspace);
+					//im2col_cpu((float *)bin_re_packed_input, new_c, l.h, l.w, l.size, l.stride, l.pad, b);
+
+					//free(bin_re_packed_input);
+
+					int new_k = layer.size * layer.size * layer.c / 32;
+
+					// good for (l.c == 64)
+					//gemm_nn_bin_32bit_packed(m, n, new_k, 1,
+					//    l.align_bit_weights, l.new_lda/32,
+					//    b, n,
+					//    c, n, l.mean_arr);
+
+					// // then exit from if()
+
+					transpose_uint32((uint32_t *)state.workspace, (uint32_t*)layer.t_bit_input, new_k, n, n, new_ldb);
+
+					// the main GEMM function
+					gemm_nn_custom_bin_mean_transposed(m, n, k, 1, (unsigned char*)layer.align_bit_weights, new_ldb, (unsigned char*)layer.t_bit_input, new_ldb, c, n, layer.mean_arr);
+
+					// // alternative GEMM
+					//gemm_nn_bin_transposed_32bit_packed(m, n, new_k, 1,
+					//    l.align_bit_weights, l.new_lda/32,
+					//    t_bit_input, new_ldb / 32,
+					//    c, n, l.mean_arr);
+
+					//free(t_bit_input);
+
+				}
+				else
+				{ // else (l.c % 32 != 0)
+
+					//--------------------------------------------------------
+					//printf(" l.index = %d - old XNOR \n", l.index);
+
+					//im2col_cpu_custom_align(state.input, l.c, l.h, l.w, l.size, l.stride, l.pad, b, l.bit_align);
+					im2col_cpu_custom_bin(state.input, layer.c, layer.h, layer.w, layer.size, layer.stride, layer.pad, state.workspace, layer.bit_align);
+
+					//size_t output_size = l.outputs;
+					//float *count_output = calloc(output_size, sizeof(float));
+					//size_t bit_output_size = output_size / 8 + 1;
+					//char *bit_output = calloc(bit_output_size, sizeof(char));
+
+					//size_t intput_size = n * k; // (out_h*out_w) X (l.size*l.size*l.c) : after im2col()
+					//size_t bit_input_size = intput_size / 8 + 1;
+					//char *bit_input = calloc(bit_input_size, sizeof(char));
+
+					//size_t weights_size = k * m; //l.size*l.size*l.c*l.n; // l.nweights
+					//size_t bit_weights_size = weights_size / 8 + 1;
+
+					//char *bit_weights = calloc(bit_weights_size, sizeof(char));
+					//float *mean_arr = calloc(l.n, sizeof(float));
+
+					// transpose B from NxK to KxN (x-axis (ldb = l.size*l.size*l.c) - should be multiple of 8 bits)
+					{
+						//size_t ldb_align = 256; // 256 bit for AVX2
+						int ldb_align = layer.lda_align;
+						size_t new_ldb = k + (ldb_align - k % ldb_align);
+						size_t t_intput_size = binary_transpose_align_input(k, n, state.workspace, &layer.t_bit_input, ldb_align, layer.bit_align);
+
+						// 5x times faster than gemm()-float32
+						gemm_nn_custom_bin_mean_transposed(m, n, k, 1, (unsigned char*)layer.align_bit_weights, new_ldb, (unsigned char*)layer.t_bit_input, new_ldb, c, n, layer.mean_arr);
+
+						//gemm_nn_custom_bin_mean_transposed(m, n, k, 1, bit_weights, k, t_bit_input, new_ldb, c, n, mean_arr);
+
+						//free(t_input);
+						//free(t_bit_input);
+						//}
+					}
+
+				}
+
+				add_bias(l.output, l.biases, l.batch, l.n, out_h*out_w);
+
+				//activate_array(l.output, m*n*l.batch, l.activation);
+				if (layer.activation == EActivation::kSWISH)						activate_array_swish						(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
+				else if (layer.activation == EActivation::kMISH)					activate_array_mish							(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
+				else if (layer.activation == EActivation::kHardMISH)				activate_array_hard_mish					(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
+				else if (layer.activation == EActivation::kNormCHAN)				activate_array_normalize_channels			(layer.output, layer.outputs * layer.batch, layer.batch, layer.out_c, layer.out_w * layer.out_h, layer.output);
+				else if (layer.activation == EActivation::kNormCHANSoftmax)			activate_array_normalize_channels_softmax	(layer.output, layer.outputs * layer.batch, layer.batch, layer.out_c, layer.out_w * layer.out_h, layer.output, 0);
+				else if (layer.activation == EActivation::kNormCHANSoftmaxMaxVal)	activate_array_normalize_channels_softmax	(layer.output, layer.outputs * layer.batch, layer.batch, layer.out_c, layer.out_w * layer.out_h, layer.output, 1);
+				else																activate_array_cpu_custom					(layer.output, m * n * layer.batch, layer.activation);
+
+				return;
+			}
+			else
+			{
+				//printf(" l.index = %d - FP32 \n", l.index);
+				float *im = state.input + (i * layer.groups + j) * (layer.c / layer.groups) * layer.h * layer.w;
+				if (layer.size == 1 and layer.stride == 1 and layer.dilation == 1)
+				{
+					b = im;
+				}
+				else
+				{
+					//im2col_cpu(im, l.c / l.groups, l.h, l.w, l.size, l.stride, l.pad, b);
+
+					im2col_cpu_ext(im,   // input
+								   l.c / l.groups,     // input channels
+					l.h, l.w,           // input size (h, w)
+					l.size, l.size,     // kernel size (h, w)
+					l.pad * l.dilation, l.pad * l.dilation,       // padding (h, w)
+					l.stride_y, l.stride_x, // stride (h, w)
+					l.dilation, l.dilation, // dilation (h, w)
+					b);                 // output
+
+				}
+
+				gemm(0, 0, m, n, k, 1, a, k, b, n, 1, c, n);
+				// bit-count to float
+			}
+			//c += n*m;
+			//state.input += l.c*l.h*l.w;
+		}
+	}
+
+	if(layer.batch_normalize)
+	{
+		forward_batchnorm_layer(layer, state);
+	}
+	else
+	{
+		add_bias(layer.output, layer.biases, layer.batch, layer.n, out_h * out_w);
+	}
+
+	//activate_array(l.output, m*n*l.batch, l.activation);
+	if (layer.activation == EActivation::kSWISH) activate_array_swish(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
+	else if (layer.activation == EActivation::kMISH) activate_array_mish(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
+	else if (layer.activation == EActivation::kHardMISH) activate_array_hard_mish(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
+	else if (layer.activation == EActivation::kNormCHAN) activate_array_normalize_channels(layer.output, layer.outputs * layer.batch, layer.batch, layer.out_c, layer.out_w * layer.out_h, layer.output);
+	else if (layer.activation == EActivation::kNormCHANSoftmax) activate_array_normalize_channels_softmax(layer.output, layer.outputs * layer.batch, layer.batch, layer.out_c, layer.out_w * layer.out_h, layer.output, 0);
+	else if (layer.activation == EActivation::kNormCHANSoftmaxMaxVal) activate_array_normalize_channels_softmax(layer.output, layer.outputs * layer.batch, layer.batch, layer.out_c, layer.out_w * layer.out_h, layer.output, 1);
+	else activate_array_cpu_custom(layer.output, layer.outputs * layer.batch, layer.activation);
+
+	if (layer.binary or layer.xnor)
+	{
+		swap_binary(&layer);
+	}
+
+	//visualize_convolutional_layer(l, "conv_visual", NULL);
+	//wait_until_press_key_cv();
+
+	if(layer.assisted_excitation && state.train) assisted_excitation_forward(layer, state);
+
+	if (layer.antialiasing)
+	{
+		network_state s = { 0 };
+		s.train = state.train;
+		s.workspace = state.workspace;
+		s.net = state.net;
+		s.input = l.output;
+		forward_convolutional_layer(*(l.input_layer), s);
+		//simple_copy_ongpu(l.outputs*l.batch, l.output, l.input_antialiasing);
+		memcpy(layer.output, layer.input_layer->output, layer.input_layer->outputs * layer.input_layer->batch * sizeof(float));
+	}
 }
