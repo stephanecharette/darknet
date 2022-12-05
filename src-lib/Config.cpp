@@ -2,7 +2,7 @@
 // MIT license applies.  See "license.txt" for details.
 
 #include "darknet-ng.hpp"
-#include "config.hpp"
+#include "Config.hpp"
 #include <iostream>
 #include <regex>
 

@@ -601,7 +601,7 @@ size_t Darknet_ng::get_convolutional_workspace_size(const Layer & layer)
 }
 
 
-void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkState & state)
+void Darknet_ng::forward_convolutional_layer(Layer & layer, NetworkState & state)
 {
 	// was: void forward_convolutional_layer(convolutional_layer l, network_state state)
 
@@ -618,7 +618,7 @@ void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkS
 			binarize_weights(layer.weights, layer.n, layer.nweights, layer.binary_weights);
 			//printf("\n binarize_weights l.align_bit_weights = %p \n", l.align_bit_weights);
 		}
-		swap_binary(&layer);
+		swap_binary(layer);
 		binarize_cpu(state.input, layer.c * layer.h * layer.w * layer.batch, layer.binary_input);
 		state.input = layer.binary_input;
 	}
@@ -736,7 +736,8 @@ void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkS
 						//size_t ldb_align = 256; // 256 bit for AVX2
 						int ldb_align = layer.lda_align;
 						size_t new_ldb = k + (ldb_align - k % ldb_align);
-						size_t t_intput_size = binary_transpose_align_input(k, n, state.workspace, &layer.t_bit_input, ldb_align, layer.bit_align);
+//						size_t t_intput_size =
+						binary_transpose_align_input(k, n, state.workspace, &layer.t_bit_input, ldb_align, layer.bit_align);
 
 						// 5x times faster than gemm()-float32
 						gemm_nn_custom_bin_mean_transposed(m, n, k, 1, (unsigned char*)layer.align_bit_weights, new_ldb, (unsigned char*)layer.t_bit_input, new_ldb, c, n, layer.mean_arr);
@@ -750,7 +751,7 @@ void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkS
 
 				}
 
-				add_bias(l.output, l.biases, l.batch, l.n, out_h*out_w);
+				add_bias(layer.output, layer.biases, layer.batch, layer.n, out_h * out_w);
 
 				//activate_array(l.output, m*n*l.batch, l.activation);
 				if (layer.activation == EActivation::kSWISH)						activate_array_swish						(layer.output, layer.outputs * layer.batch, layer.activation_input, layer.output);
@@ -776,12 +777,12 @@ void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkS
 					//im2col_cpu(im, l.c / l.groups, l.h, l.w, l.size, l.stride, l.pad, b);
 
 					im2col_cpu_ext(im,   // input
-								   l.c / l.groups,     // input channels
-					l.h, l.w,           // input size (h, w)
-					l.size, l.size,     // kernel size (h, w)
-					l.pad * l.dilation, l.pad * l.dilation,       // padding (h, w)
-					l.stride_y, l.stride_x, // stride (h, w)
-					l.dilation, l.dilation, // dilation (h, w)
+								   layer.c / layer.groups,     // input channels
+					layer.h, layer.w,           // input size (h, w)
+					layer.size, layer.size,     // kernel size (h, w)
+					layer.pad * layer.dilation, layer.pad * layer.dilation,       // padding (h, w)
+					layer.stride_y, layer.stride_x, // stride (h, w)
+					layer.dilation, layer.dilation, // dilation (h, w)
 					b);                 // output
 
 				}
@@ -814,7 +815,7 @@ void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkS
 
 	if (layer.binary or layer.xnor)
 	{
-		swap_binary(&layer);
+		swap_binary(layer);
 	}
 
 	//visualize_convolutional_layer(l, "conv_visual", NULL);
@@ -833,4 +834,156 @@ void Darknet_ng::forward_convolutional_layer(const Layer & layer, const NetworkS
 		//simple_copy_ongpu(l.outputs*l.batch, l.output, l.input_antialiasing);
 		memcpy(layer.output, layer.input_layer->output, layer.input_layer->outputs * layer.input_layer->batch * sizeof(float));
 	}
+}
+
+
+void Darknet_ng::binarize_weights(float * weights, const int n, const int size, float *binary)
+{
+	for(int f = 0; f < n; ++f)
+	{
+		float mean = 0.0f;
+		for(int i = 0; i < size; ++i)
+		{
+			mean += std::fabs(weights[f*size + i]);
+		}
+		mean = mean / size;
+		for(int i = 0; i < size; ++i)
+		{
+			binary[f * size + i] = (weights[f * size + i] > 0.0f) ? mean: -mean;
+		}
+	}
+
+	return;
+}
+
+
+void Darknet_ng::swap_binary(Darknet_ng::Layer & l)
+{
+	std::swap(l.weights, l.binary_weights);
+#if 0
+	float *swap = l.weights;
+	l.weights = l.binary_weights;
+	l.binary_weights = swap;
+#endif
+
+	#ifdef GPU
+	swap = l->weights_gpu;
+	l->weights_gpu = l->binary_weights_gpu;
+	l->binary_weights_gpu = swap;
+	#endif
+}
+
+
+void Darknet_ng::binarize_cpu(float *input, int n, float *binary)
+{
+	for(int i = 0; i < n; ++i)
+	{
+		binary[i] = (input[i] > 0) ? 1 : -1;
+	}
+
+	return;
+}
+
+
+// binary transpose
+size_t Darknet_ng::binary_transpose_align_input(int k, int n, float *b, char **t_bit_input, size_t ldb_align, int bit_align)
+{
+	size_t new_ldb = k + (ldb_align - k%ldb_align); // (k / 8 + 1) * 8;
+	//printf("\n n = %d, bit_align = %d \n", n, bit_align);
+	size_t t_intput_size = new_ldb * bit_align;// n;
+	size_t t_bit_input_size = t_intput_size / 8;// +1;
+
+	memset(*t_bit_input, 0, t_bit_input_size * sizeof(char));
+	//int src_size = k * bit_align;
+
+	// b - [bit_align, k] - [l.bit_align, l.size*l.size*l.c] = src_size
+	// t_input - [bit_align, k] - [n', k]
+	// t_bit_input - [new_ldb, n] - [k', n]
+
+	//transpose_bin(t_input, *t_bit_input, k, n, bit_align, new_ldb, 8);
+	transpose_bin((uint32_t*)b, (uint32_t*)*t_bit_input, k, n, bit_align, new_ldb, 8);
+
+	return t_intput_size;
+}
+
+
+void Darknet_ng::add_bias(float * output, float * biases, int batch, int n, int size)
+{
+	for (int b = 0; b < batch; ++b)
+	{
+		for (int i = 0; i < n; ++i)
+		{
+			for (int j = 0; j < size; ++j)
+			{
+				output[(b * n + i) * size + j] += biases[i];
+			}
+		}
+	}
+
+	return;
+}
+
+
+// Function uses casting from int to unsigned to compare if value of
+// parameter a is greater or equal to zero and lower than value of
+// parameter b. The b parameter is of type signed and is always positive,
+// therefore its value is always lower than 0x800... where casting
+// negative value of a parameter converts it to value higher than 0x800...
+// The casting allows to use one condition instead of two.
+inline static int is_a_ge_zero_and_a_lt_b(int a, int b)
+{
+	return (unsigned)(a) < (unsigned)(b);
+}
+
+
+void Darknet_ng::im2col_cpu_ext(
+		const float * data_im, const int channels, const int height, const int width, const int kernel_h, const int kernel_w,
+		const int pad_h, const int pad_w, const int stride_h, const int stride_w, const int dilation_h, const int dilation_w,
+		float * data_col)
+{
+	const int output_h = (height + 2 * pad_h - (dilation_h * (kernel_h - 1) + 1)) / stride_h + 1;
+	const int output_w = (width + 2 * pad_w - (dilation_w * (kernel_w - 1) + 1)) / stride_w + 1;
+	const int channel_size = height * width;
+
+//	int channel, kernel_row, kernel_col, output_rows, output_col;
+
+	for (int channel = channels; channel--; data_im += channel_size)
+	{
+		for (int kernel_row = 0; kernel_row < kernel_h; kernel_row++)
+		{
+			for (int kernel_col = 0; kernel_col < kernel_w; kernel_col++)
+			{
+				int input_row = -pad_h + kernel_row * dilation_h;
+				for (int output_rows = output_h; output_rows; output_rows--)
+				{
+					if (!is_a_ge_zero_and_a_lt_b(input_row, height))
+					{
+						for (int output_col = output_w; output_col; output_col--)
+						{
+							*(data_col++) = 0;
+						}
+					}
+					else
+					{
+						int input_col = -pad_w + kernel_col * dilation_w;
+						for (int output_col = output_w; output_col; output_col--)
+						{
+							if (is_a_ge_zero_and_a_lt_b(input_col, width))
+							{
+								*(data_col++) = data_im[input_row * width + input_col];
+							}
+							else
+							{
+								*(data_col++) = 0;
+							}
+							input_col += stride_w;
+						}
+					}
+					input_row += stride_h;
+				}
+			}
+		}
+	}
+
+	return;
 }

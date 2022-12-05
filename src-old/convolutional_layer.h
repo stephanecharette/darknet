@@ -46,7 +46,6 @@ void binary_align_weights(convolutional_layer *l);
 
 void backward_convolutional_layer(convolutional_layer layer, network_state state);
 
-void add_bias(float *output, float *biases, int batch, int n, int size);
 void backward_bias(float *bias_updates, float *delta, int batch, int n, int size);
 
 image get_convolutional_image(convolutional_layer layer);

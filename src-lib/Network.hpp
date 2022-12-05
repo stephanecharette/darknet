@@ -223,5 +223,16 @@ namespace Darknet_ng
 	int convolutional_out_width(const Layer & layer);
 	int convolutional_out_height(const Layer & layer);
 	size_t get_convolutional_workspace_size(const Layer & layer);
-	void forward_convolutional_layer(const Layer & layer, const NetworkState & state);
+	void forward_convolutional_layer(Layer & layer, NetworkState & state);
+	void binarize_weights(float *weights, const int n, const int size, float *binary);
+	void swap_binary(Layer & l);
+	void binarize_cpu(float *input, int n, float *binary);
+	size_t binary_transpose_align_input(int k, int n, float * b, char ** t_bit_input, size_t ldb_align, int bit_align);
+	void add_bias(float * output, float * biases, int batch, int n, int size);
+
+	/// https://github.com/BVLC/caffe/blob/master/src/caffe/util/im2col.cpp
+	void im2col_cpu_ext(
+			const float * data_im, const int channels, const int height, const int width, const int kernel_h, const int kernel_w,
+			const int pad_h, const int pad_w, const int stride_h, const int stride_w, const int dilation_h, const int dilation_w,
+			float* data_col);
 }

@@ -24,42 +24,6 @@
 void forward_xnor_layer(layer l, network_state state);
 #endif
 
-void swap_binary(convolutional_layer *l)
-{
-    float *swap = l->weights;
-    l->weights = l->binary_weights;
-    l->binary_weights = swap;
-
-    #ifdef GPU
-    swap = l->weights_gpu;
-    l->weights_gpu = l->binary_weights_gpu;
-    l->binary_weights_gpu = swap;
-    #endif
-}
-
-void binarize_weights(float *weights, int n, int size, float *binary)
-{
-    int i, f;
-    for(f = 0; f < n; ++f){
-        float mean = 0;
-        for(i = 0; i < size; ++i){
-            mean += fabs(weights[f*size + i]);
-        }
-        mean = mean / size;
-        for(i = 0; i < size; ++i){
-            binary[f*size + i] = (weights[f*size + i] > 0) ? mean: -mean;
-        }
-    }
-}
-
-void binarize_cpu(float *input, int n, float *binary)
-{
-    int i;
-    for(i = 0; i < n; ++i){
-        binary[i] = (input[i] > 0) ? 1 : -1;
-    }
-}
-
 void binarize_input(float *input, int n, int size, float *binary)
 {
     int i, s;
@@ -554,18 +518,6 @@ void set_specified_workspace_limit(convolutional_layer *l, size_t workspace_size
 #endif  // CUDNN
 }
 
-void add_bias(float *output, float *biases, int batch, int n, int size)
-{
-    int i,j,b;
-    for(b = 0; b < batch; ++b){
-        for(i = 0; i < n; ++i){
-            for(j = 0; j < size; ++j){
-                output[(b*n + i)*size + j] += biases[i];
-            }
-        }
-    }
-}
-
 void scale_bias(float *output, float *scales, int batch, int n, int size)
 {
     int i,j,b;
@@ -745,28 +697,6 @@ void binary_align_weights(convolutional_layer *l)
 
     free(align_weights);
 }
-
-// binary transpose
-size_t binary_transpose_align_input(int k, int n, float *b, char **t_bit_input, size_t ldb_align, int bit_align)
-{
-    size_t new_ldb = k + (ldb_align - k%ldb_align); // (k / 8 + 1) * 8;
-    //printf("\n n = %d, bit_align = %d \n", n, bit_align);
-    size_t t_intput_size = new_ldb * bit_align;// n;
-    size_t t_bit_input_size = t_intput_size / 8;// +1;
-
-    memset(*t_bit_input, 0, t_bit_input_size * sizeof(char));
-    //int src_size = k * bit_align;
-
-    // b - [bit_align, k] - [l.bit_align, l.size*l.size*l.c] = src_size
-    // t_input - [bit_align, k] - [n', k]
-    // t_bit_input - [new_ldb, n] - [k', n]
-
-    //transpose_bin(t_input, *t_bit_input, k, n, bit_align, new_ldb, 8);
-    transpose_bin((uint32_t*)b, (uint32_t*)*t_bit_input, k, n, bit_align, new_ldb, 8);
-
-    return t_intput_size;
-}
-
 
 void assisted_excitation_forward(convolutional_layer l, network_state state)
 {
@@ -1027,4 +957,3 @@ image *visualize_convolutional_layer(convolutional_layer l, char *window, image 
     free_image(dc);
     return single_weights;
 }
-

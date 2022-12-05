@@ -353,7 +353,64 @@ void transpose_32x32_bits_my(uint32_t *A, uint32_t *B, int lda, int ldb)
 }
 */
 
+
+
+
+
+
+
+
+
+
+
+
+
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+
+
 #ifndef GPU
+
+
+
+
+
+
+
+
+
+
+
+
 uint8_t reverse_8_bit(uint8_t a) {
     return ((a * 0x0802LU & 0x22110LU) | (a * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16;
 }
@@ -525,7 +582,133 @@ void transpose_bin(uint32_t *A, uint32_t *B, const int n, const int m,
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+
 #if (defined(__AVX__) && defined(__x86_64__)) || (defined(_WIN64) && !defined(__MINGW32__) && !defined(_M_ARM64))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #if (defined(_WIN64) && !defined(__MINGW64__))
 #include <intrin.h>
@@ -1206,125 +1389,6 @@ static inline int get_count_mula(__m256i count_sum) {
         + _mm256_extract_epi64(count_sum, 3);
 }
 
-// 5x times faster than gemm()-float32
-// further optimizations: do mean-mult only for the last layer
-void gemm_nn_custom_bin_mean_transposed(int M, int N, int K, float ALPHA_UNUSED,
-    unsigned char *A, int lda,
-    unsigned char *B, int ldb,
-    float *C, int ldc, float *mean_arr)
-{
-    int i;
-
-#if defined(_OPENMP)
-    static int max_num_threads = 0;
-    if (max_num_threads == 0) {
-        max_num_threads = omp_get_max_threads();
-        //omp_set_num_threads(max_num_threads / 2);
-    }
-#endif
-
-    //#pragma omp parallel for
-    //for (i = 0; i < M; ++i)
-    #pragma omp parallel for
-    for (i = 0; i < (M/2)*2; i += 2)
-    {   // l.n - filters [16 - 55 - 1024]
-        float mean_val_0 = mean_arr[i + 0];
-        float mean_val_1 = mean_arr[i + 1];
-        int j, k;
-        //__m256i all_1 = _mm256_set1_epi8(255);
-
-        //for (j = 0; j < N; ++j)
-        for (j = 0; j < (N/2)*2; j += 2)
-        { // out_h*out_w - one channel output size [169 - 173056]
-            //int count = 0;
-            const int bit_step = 256;
-            __m256i count_sum_0 = _mm256_set1_epi8(0);
-            __m256i count_sum_1 = _mm256_set1_epi8(0);
-            __m256i count_sum_2 = _mm256_set1_epi8(0);
-            __m256i count_sum_3 = _mm256_set1_epi8(0);
-
-            for (k = 0; k < K; k += bit_step) {   // l.size*l.size*l.c - one filter size [27 - 9216]
-
-                __m256i a_bit256_0 = _mm256_loadu_si256((__m256i *)(A + ((i + 0)*lda + k) / 8));
-                __m256i b_bit256_0 = _mm256_loadu_si256((__m256i *)(B + ((j + 0)*ldb + k) / 8));
-
-                __m256i a_bit256_1 = _mm256_loadu_si256((__m256i *)(A + ((i + 1)*lda + k) / 8));
-                __m256i b_bit256_1 = _mm256_loadu_si256((__m256i *)(B + ((j + 1)*ldb + k) / 8));
-
-
-                xnor_avx2_popcnt(a_bit256_0, b_bit256_0, &count_sum_0);
-                xnor_avx2_popcnt(a_bit256_0, b_bit256_1, &count_sum_1);
-
-                xnor_avx2_popcnt(a_bit256_1, b_bit256_0, &count_sum_2);
-                xnor_avx2_popcnt(a_bit256_1, b_bit256_1, &count_sum_3);
-
-                //count += popcnt256(c_bit256);
-                //binary_int64_printf(c_bit64);
-                //printf(", count = %d \n\n", tmp_count);
-            }
-
-            int count_0 = get_count_mula(count_sum_0);
-            int count_1 = get_count_mula(count_sum_1);
-            int count_2 = get_count_mula(count_sum_2);
-            int count_3 = get_count_mula(count_sum_3);
-
-            const int f1 = (K % bit_step == 0) ? 0 : (bit_step - (K % bit_step));
-            count_0 = count_0 - f1;    // remove extra bits (from empty space for align only)
-            count_1 = count_1 - f1;
-            count_2 = count_2 - f1;
-            count_3 = count_3 - f1;
-            C[i*ldc + (j + 0)] = (2 * count_0 - K) * mean_val_0;
-            C[i*ldc + (j + 1)] = (2 * count_1 - K) * mean_val_0;
-            C[(i + 1)*ldc + (j + 0)] = (2 * count_2 - K) * mean_val_1;
-            C[(i + 1)*ldc + (j + 1)] = (2 * count_3 - K) * mean_val_1;
-        }
-
-        int i_d;
-        for (i_d = 0; i_d < 2; ++i_d)
-        {
-            float mean_val = mean_arr[i + i_d];
-            for (j = (N / 2) * 2; j < N; j += 1)
-            { // out_h*out_w - one channel output size [169 - 173056]
-                const int bit_step = 256;
-                __m256i count_sum = _mm256_set1_epi8(0);
-
-                for (k = 0; k < K; k += bit_step) {   // l.size*l.size*l.c - one filter size [27 - 9216]
-                    __m256i a_bit256_0 = _mm256_loadu_si256((__m256i *)(A + ((i + i_d + 0)*lda + k) / 8));
-                    __m256i b_bit256_0 = _mm256_loadu_si256((__m256i *)(B + ((j + 0)*ldb + k) / 8));
-                    xnor_avx2_popcnt(a_bit256_0, b_bit256_0, &count_sum);
-                }
-                int count = get_count_mula(count_sum);
-                const int f1 = (K % bit_step == 0) ? 0 : (bit_step - (K % bit_step));
-                count = count - f1;    // remove extra bits (from empty space for align only)
-                C[(i + i_d)*ldc + j] = (2 * count - K) * mean_val;
-            }
-        }
-    }
-
-    for (i = (M / 2) * 2; i < M; i += 1)
-    {
-        float mean_val = mean_arr[i];
-        int j, k;
-        for (j = 0; j < N; j += 1)
-        { // out_h*out_w - one channel output size [169 - 173056]
-            const int bit_step = 256;
-            __m256i count_sum = _mm256_set1_epi8(0);
-
-            for (k = 0; k < K; k += bit_step) {   // l.size*l.size*l.c - one filter size [27 - 9216]
-                __m256i a_bit256_0 = _mm256_loadu_si256((__m256i *)(A + ((i + 0)*lda + k) / 8));
-                __m256i b_bit256_0 = _mm256_loadu_si256((__m256i *)(B + ((j + 0)*ldb + k) / 8));
-                xnor_avx2_popcnt(a_bit256_0, b_bit256_0, &count_sum);
-            }
-            int count = get_count_mula(count_sum);
-            const int f1 = (K % bit_step == 0) ? 0 : (bit_step - (K % bit_step));
-            count = count - f1;    // remove extra bits (from empty space for align only)
-            C[i*ldc + j] = (2 * count - K) * mean_val;
-        }
-    }
-}
-
-
-
 
 //From Berkeley Vision's Caffe!
 //https://github.com/BVLC/caffe/blob/master/LICENSE
@@ -1445,98 +1509,6 @@ void im2col_cpu_custom_transpose(float* data_im,
 
 //From Berkeley Vision's Caffe!
 //https://github.com/BVLC/caffe/blob/master/LICENSE
-void im2col_cpu_custom(float* data_im,
-    int channels, int height, int width,
-    int ksize, int stride, int pad, float* data_col)
-{
-    int c;
-    const int height_col = (height + 2 * pad - ksize) / stride + 1;
-    const int width_col = (width + 2 * pad - ksize) / stride + 1;
-    const int channels_col = channels * ksize * ksize;
-
-    // optimized version
-    if (height_col == height && width_col == width && stride == 1 && pad == 1 && is_fma_avx2())
-    {
-        #pragma omp parallel for
-        for (c = 0; c < channels_col; ++c) {
-            int h, w;
-            int w_offset = c % ksize;
-            int h_offset = (c / ksize) % ksize;
-            int c_im = c / ksize / ksize;
-            for (h = pad; h < height_col-pad; ++h) {
-                for (w = pad; w < width_col-pad-8; w += 8) {
-                    int im_row = h_offset + h - pad;
-                    int im_col = w_offset + w - pad;
-                    int col_index = (c * height_col + h) * width_col + w;
-
-                    //data_col[col_index] = data_im[im_col + width*(im_row + height*c_im)];
-                    __m256 src256 = _mm256_loadu_ps((float *)(&data_im[im_col + width*(im_row + height*c_im)]));
-                    _mm256_storeu_ps(&data_col[col_index], src256);
-                }
-
-                for (; w < width_col - pad; ++w) {
-                    int im_row = h_offset + h - pad;
-                    int im_col = w_offset + w - pad;
-                    int col_index = (c * height_col + h) * width_col + w;
-
-                    data_col[col_index] = data_im[im_col + width*(im_row + height*c_im)];
-                }
-            }
-
-            {
-                w = 0;
-                for (h = 0; h < height_col; ++h) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    int col_index = (c * height_col + h) * width_col + w;
-                    data_col[col_index] = im2col_get_pixel(data_im, height, width, channels,
-                        im_row, im_col, c_im, pad);
-                }
-            }
-
-            {
-                w = width_col-1;
-                for (h = 0; h < height_col; ++h) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    int col_index = (c * height_col + h) * width_col + w;
-                    data_col[col_index] = im2col_get_pixel(data_im, height, width, channels,
-                        im_row, im_col, c_im, pad);
-                }
-            }
-
-            {
-                h = 0;
-                for (w = 0; w < width_col; ++w) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    int col_index = (c * height_col + h) * width_col + w;
-                    data_col[col_index] = im2col_get_pixel(data_im, height, width, channels,
-                            im_row, im_col, c_im, pad);
-                }
-            }
-
-            {
-                h = height_col-1;
-                for (w = 0; w < width_col; ++w) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    int col_index = (c * height_col + h) * width_col + w;
-                    data_col[col_index] = im2col_get_pixel(data_im, height, width, channels,
-                        im_row, im_col, c_im, pad);
-                }
-            }
-        }
-
-    }
-    else {
-        //printf("\n Error: is no non-optimized version \n");
-        im2col_cpu(data_im, channels, height, width, ksize, stride, pad, data_col);
-    }
-}
-
-//From Berkeley Vision's Caffe!
-//https://github.com/BVLC/caffe/blob/master/LICENSE
 void im2col_cpu_custom_align(float* data_im,
     int channels, int height, int width,
     int ksize, int stride, int pad, float* data_col, int bit_align)
@@ -1633,188 +1605,7 @@ void im2col_cpu_custom_align(float* data_im,
 }
 
 
-//From Berkeley Vision's Caffe!
-//https://github.com/BVLC/caffe/blob/master/LICENSE
-void im2col_cpu_custom_bin(float* data_im,
-    int channels, int height, int width,
-    int ksize, int stride, int pad, float* data_col, int bit_align)
-{
-    int c;
-    const int height_col = (height + 2 * pad - ksize) / stride + 1;
-    const int width_col = (width + 2 * pad - ksize) / stride + 1;
-    const int channels_col = channels * ksize * ksize;
 
-    // optimized version
-    if (height_col == height && width_col == width && stride == 1 && pad == 1 && is_fma_avx2())
-    {
-        __m256i all256_sing1 = _mm256_set_epi32(0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000);
-        __m256 float_zero256 = _mm256_set1_ps(0.00);
-
-        int new_ldb = bit_align;
-
-        #pragma omp parallel for
-        for (c = 0; c < channels_col; ++c) {
-            int h, w;
-            int w_offset = c % ksize;
-            int h_offset = (c / ksize) % ksize;
-            int c_im = c / ksize / ksize;
-            for (h = pad; h < height_col - pad; ++h) {
-                for (w = pad; w < width_col - pad - 8; w += 8) {
-                    int im_row = h_offset + h - pad;
-                    int im_col = w_offset + w - pad;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //__m256i src256 = _mm256_loadu_si256((__m256i *)(&data_im[im_col + width*(im_row + height*c_im)]));
-                    //__m256i result256 = _mm256_and_si256(src256, all256_sing1); // check sign in 8 x 32-bit floats
-                    //uint16_t mask = _mm256_movemask_ps(_mm256_castsi256_ps(result256)); // (val >= 0) ? 0 : 1
-                    //mask = ~mask;   // inverse mask,  (val >= 0) ? 1 : 0
-
-                    __m256 src256 = _mm256_loadu_ps((float *)(&data_im[im_col + width*(im_row + height*c_im)]));
-                    __m256 result256 = _mm256_cmp_ps(src256, float_zero256, _CMP_GT_OS);
-                    uint16_t mask = _mm256_movemask_ps(result256); // (val > 0) ? 0 : 1
-
-                    uint16_t* dst_ptr = (uint16_t*)&((uint8_t*)data_col)[col_index / 8];
-                    *dst_ptr |= (mask << (col_index % 8));
-                }
-
-                for (; w < width_col - pad; ++w) {
-                    int im_row = h_offset + h - pad;
-                    int im_col = w_offset + w - pad;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = data_im[im_col + width*(im_row + height*c_im)];
-                    float val = data_im[im_col + width*(im_row + height*c_im)];
-                    if (val > 0) set_bit((unsigned char* const)data_col, col_index);
-                }
-            }
-
-            {
-                w = 0;
-                for (h = 0; h < height_col; ++h) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char* const)data_col, col_index);
-                }
-            }
-
-            {
-                w = width_col - 1;
-                for (h = 0; h < height_col; ++h) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char* const)data_col, col_index);
-                }
-            }
-
-            {
-                h = 0;
-                for (w = 0; w < width_col; ++w) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char* const)data_col, col_index);
-                }
-            }
-
-            {
-                h = height_col - 1;
-                for (w = 0; w < width_col; ++w) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char* const)data_col, col_index);
-                }
-            }
-        }
-
-    }
-    else {
-        printf("\n Error: is no non-optimized version \n");
-        //im2col_cpu(data_im, channels, height, width, ksize, stride, pad, data_col); // must be aligned for transpose after float_to_bin
-        // float_to_bit(b, t_input, src_size);
-        // transpose_bin(t_input, *t_bit_input, k, n, bit_align, new_ldb, 8);
-    }
-}
-
-
-void activate_array_cpu_custom(float *x, const int n, const ACTIVATION a)
-{
-    int i = 0;
-    if (a == LINEAR)
-    {}
-    else if (a == LEAKY)
-    {
-        if (is_fma_avx2()) {
-            __m256i all256_sing1 = _mm256_set_epi32(0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000);
-            __m256 all256_01 = _mm256_set1_ps(0.1F);
-
-            for (i = 0; i < n - 8; i += 8) {
-                //x[i] = (x[i]>0) ? x[i] : .1*x[i];
-
-                __m256 src256 = _mm256_loadu_ps(&x[i]);
-                __m256 mult256 = _mm256_mul_ps((src256), all256_01); // mult * 0.1
-
-                __m256i sign256 = _mm256_and_si256(_mm256_castps_si256(src256), all256_sing1); // check sign in 8 x 32-bit floats
-
-                __m256 result256 = _mm256_blendv_ps(src256, mult256, _mm256_castsi256_ps(sign256)); // (sign>0) ? src : mult;
-                _mm256_storeu_ps(&x[i], result256);
-            }
-        }
-
-        for (; i < n; ++i) {
-            x[i] = (x[i]>0) ? x[i] : .1*x[i];
-        }
-    }
-    else {
-        for (i = 0; i < n; ++i) {
-            x[i] = activate(x[i], a);
-        }
-    }
-}
-
-void float_to_bit(float *src, unsigned char *dst, size_t size)
-{
-    size_t dst_size = size / 8 + 1;
-    memset(dst, 0, dst_size);
-
-    size_t i;
-    //__m256i all256_sing1 = _mm256_set_epi32(0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000);
-    __m256 float_zero256 = _mm256_set1_ps(0.0);
-
-    for (i = 0; i < size; i+=8)
-    {
-        //__m256i src256 = _mm256_loadu_si256((__m256i *)(&src[i]));
-        //__m256i result256 = _mm256_and_si256(src256, all256_sing1); // check sign in 8 x 32-bit floats
-        //uint32_t mask = _mm256_movemask_ps(_mm256_castsi256_ps(result256)); // (val >= 0) ? 0 : 1
-        ////mask = ~mask;   // inverse mask,  (val >= 0) ? 1 : 0
-
-        __m256 src256 = _mm256_loadu_ps((float *)(&src[i]));
-        __m256 result256 = _mm256_cmp_ps(src256, float_zero256, _CMP_GT_OS);
-        uint32_t mask = _mm256_movemask_ps(result256); // (val > 0) ? 0 : 1
-
-        dst[i / 8] = mask;
-    }
-}
 
 static inline void transpose4x4_SSE(float *A, float *B, const int lda, const int ldb)
 {
@@ -1963,7 +1754,108 @@ void forward_maxpool_layer_avx(float *src, float *dst, int *indexes, int size, i
     }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+
+
 #else   // AVX
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int is_avx() {
     return 0;
@@ -2219,136 +2111,6 @@ void im2col_cpu_custom(float* data_im,
 }
 
 
-//From Berkeley Vision's Caffe!
-//https://github.com/BVLC/caffe/blob/master/LICENSE
-void im2col_cpu_custom_bin(float* data_im,
-    int channels, int height, int width,
-    int ksize, int stride, int pad, float* data_col, int bit_align)
-{
-    int c;
-    const int height_col = (height + 2 * pad - ksize) / stride + 1;
-    const int width_col = (width + 2 * pad - ksize) / stride + 1;
-    const int channels_col = channels * ksize * ksize;
-
-    // optimized version
-    if (height_col == height && width_col == width && stride == 1 && pad == 1)
-    {
-        int new_ldb = bit_align;
-
-        #pragma omp parallel for
-        for (c = 0; c < channels_col; ++c) {
-            int h, w;
-            int w_offset = c % ksize;
-            int h_offset = (c / ksize) % ksize;
-            int c_im = c / ksize / ksize;
-            for (h = pad; h < height_col - pad; ++h) {
-                for (w = pad; w < width_col - pad - 8; w += 1) {
-                    int im_row = h_offset + h - pad;
-                    int im_col = w_offset + w - pad;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    float val = data_im[im_col + width*(im_row + height*c_im)];
-                    if (val > 0) set_bit((unsigned char*)data_col, col_index);
-                }
-
-                for (; w < width_col - pad; ++w) {
-                    int im_row = h_offset + h - pad;
-                    int im_col = w_offset + w - pad;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = data_im[im_col + width*(im_row + height*c_im)];
-                    float val = data_im[im_col + width*(im_row + height*c_im)];
-                    if (val > 0) set_bit((unsigned char*)data_col, col_index);
-                }
-            }
-
-            {
-                w = 0;
-                for (h = 0; h < height_col; ++h) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char*)data_col, col_index);
-                }
-            }
-
-            {
-                w = width_col - 1;
-                for (h = 0; h < height_col; ++h) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char*)data_col, col_index);
-                }
-            }
-
-            {
-                h = 0;
-                for (w = 0; w < width_col; ++w) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char*)data_col, col_index);
-                }
-            }
-
-            {
-                h = height_col - 1;
-                for (w = 0; w < width_col; ++w) {
-                    int im_row = h_offset + h;
-                    int im_col = w_offset + w;
-                    //int col_index = (c * height_col + h) * width_col + w;
-                    int col_index = c * new_ldb + h * width_col + w;
-
-                    //data_col[col_index] = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    float val = im2col_get_pixel(data_im, height, width, channels, im_row, im_col, c_im, pad);
-                    if (val > 0) set_bit((unsigned char*)data_col, col_index);
-                }
-            }
-        }
-
-    }
-    else {
-        printf("\n Error: is no non-optimized version \n");
-        //im2col_cpu(data_im, channels, height, width, ksize, stride, pad, data_col); // must be aligned for transpose after float_to_bin
-        // float_to_bit(b, t_input, src_size);
-        // transpose_bin(t_input, *t_bit_input, k, n, bit_align, new_ldb, 8);
-    }
-}
-
-
-void activate_array_cpu_custom(float *x, const int n, const ACTIVATION a)
-{
-    int i;
-    if (a == LINEAR)
-    {
-    }
-    else if (a == LEAKY)
-    {
-        for (i = 0; i < n; ++i) {
-            x[i] = (x[i]>0) ? x[i] : .1*x[i];
-        }
-    }
-    else {
-        for (i = 0; i < n; ++i) {
-            x[i] = activate(x[i], a);
-        }
-    }
-}
 
 void float_to_bit(float *src, unsigned char *dst, size_t size)
 {
@@ -2449,43 +2211,6 @@ void forward_maxpool_layer_avx(float *src, float *dst, int *indexes, int size, i
 
 #endif    // AVX
 
-
-// 32 channels -> 1 channel (with 32 floats)
-// 256 channels -> 8 channels (with 32 floats)
-void repack_input(float *input, float *re_packed_input, int w, int h, int c)
-{
-    const int items_per_channel = w * h;
-    int chan, i;
-    for (chan = 0; chan < c; chan += 32)
-    {
-        for (i = 0; i < items_per_channel; ++i)
-        {
-            int c_pack;
-            for (c_pack = 0; c_pack < 32; ++c_pack) {
-                float src = input[(chan + c_pack)*items_per_channel + i];
-
-                re_packed_input[chan*items_per_channel + i * 32 + c_pack] = src;
-            }
-        }
-    }
-}
-
-void transpose_uint32(uint32_t *src, uint32_t *dst, int src_h, int src_w, int src_align, int dst_align)
-{
-    //l.bit_align - algined (n) by 32
-    //new_ldb - aligned (k) by 256
-
-    int i;
-    //#pragma omp parallel for
-    for (i = 0; i < src_h; i += 1)  // l.size*l.size*l.c;
-    {
-        int j;
-        for (j = 0; j < src_w; j += 1)  // out_h*out_w;
-        {
-            ((uint32_t *)dst)[j*dst_align / 32 + i] = ((uint32_t *)src)[i*src_align + j];
-        }
-    }
-}
 
 void gemm_nn_bin_transposed_32bit_packed(int M, int N, int K, float ALPHA,
     uint32_t *A, int lda,
@@ -2667,7 +2392,71 @@ void gemm_cpu(int TA, int TB, int M, int N, int K, float ALPHA,
     }
 }
 
+
+
+
+
+
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+/* *************************************************************************************************** */
+
+
 #ifdef GPU
+
+
+
+
+
+
+
+
+
+
 
 #include <math.h>
 

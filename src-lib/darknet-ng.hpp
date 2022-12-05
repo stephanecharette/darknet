@@ -47,10 +47,12 @@ namespace Darknet_ng
 
 
 #include "Exception.hpp"
+#include "blas.hpp"
+#include "gemm.hpp"
 #include "enums.hpp"
 #include "structs.hpp"
-#include "activation.hpp"
-#include "parser.hpp"
-#include "layers.hpp"
-#include "config.hpp"
-#include "network.hpp"
+#include "Activation.hpp"
+#include "LearningRatePolicy.hpp"
+#include "Layers.hpp"
+#include "Config.hpp"
+#include "Network.hpp"
